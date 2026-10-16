@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Logs & capture artifacts
+*.log
+*.err
+
+# REA evidence bundles (large JSONs >100MB) and recovered third-party sources
+/rea/*.json
+/rea/ui-analysis/*.json
+/rea/reconstructed/
+/rea/recovered-src/

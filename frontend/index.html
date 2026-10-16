@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MATLAB R2026b — REA Reconstructed Workbench</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <!-- Barra de título estilo MATLABWindow.exe (CEF Shell) -->
+  <header class="window-header">
+    <div class="brand-cluster">
+      <div class="matlab-crest" aria-hidden="true">
+        <svg viewBox="0 0 28 28" width="22" height="22">
+          <path d="M3 21 L10 13 L15 17 L21 5 L25 18 L18 23 L12 19 Z" fill="#D95319" stroke="#F47C48" stroke-width="1.2"/>
+          <path d="M3 21 L10 13 L15 17 L12 22 Z" fill="#0072BD" opacity="0.88"/>
+        </svg>
+      </div>
+      <div class="brand-titles">
+        <span class="app-title">MATLAB R2026b</span>
+        <span class="app-subtitle">26.2.0.3386108 · Reconstrucción REA v6.5.0</span>
+      </div>
+    </div>
+
+    <nav class="toolstrip" role="tablist" aria-label="Toolstrip">
+      <div class="toolstrip-tab-container" data-dojo-attach-point="toolstripTabContainer">
+        <button class="toolstrip-tab active" data-tab="home" role="tab" aria-selected="true">
+          HOME
+        </button>
+        <button class="toolstrip-tab" data-tab="plots" role="tab" aria-selected="false">
+          PLOTS
+        </button>
+        <button class="toolstrip-tab" data-tab="apps" role="tab" aria-selected="false">
+          APPS
+        </button>
+        <button class="toolstrip-tab" data-tab="rea" role="tab" aria-selected="false">
+          REA
+        </button>
+      </div>
+    </nav>
+
+    <div class="header-telemetry">
+      <span id="native-bridge-pill" class="status-pill status-ok">libMatlabEngine: 11/11 P/Invoke</span>
+      <span id="mvm-status-pill" class="status-pill status-info">MVM Ready</span>
+    </div>
+  </header>
+
+  <!-- Cinta HOME (Toolstrip): archivo, script, demos — escritorio siempre visible -->
+  <section id="toolstrip-home" class="action-ribbon toolstrip-group">
+    <div class="ribbon-group">
+      <button id="btn-run-script" class="btn-toolstrip" title="Ejecutar el script actual en la MVM (F5)">
+        <span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="15" height="15"><circle cx="8" cy="8" r="7" fill="#77ac30"/><path d="M6 5l5 3-5 3z" fill="#fff"/></svg></span>
+        Ejecutar (F5)
+      </button>
+      <button id="btn-save-script" class="btn-toolstrip" title="Guardar cambios en el archivo .m">
+        <span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="15" height="15"><path d="M3 1h8l2 2v12H3z" fill="#fff" stroke="#7d7d7d"/><rect x="5" y="1" width="6" height="4" fill="#268cdd"/><rect x="5" y="9" width="6" height="4" fill="#dedfe0"/></svg></span>
+        Guardar
+      </button>
+      <button id="btn-new-script" class="btn-toolstrip" title="Crear nuevo script .m">
+        <span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="15" height="15"><rect x="2" y="1" width="10" height="14" rx="1" fill="#fff" stroke="#7d7d7d"/><path d="M4 4h6M4 6h6M4 8h6M4 10h4" stroke="#1656a7" stroke-width="1.2"/></svg></span>
+        Nuevo Script
+      </button>
+    </div>
+
+    <div class="ribbon-divider"></div>
+
+    <div class="ribbon-group">
+      <span class="ribbon-caption">Demos R2026b:</span>
+      <button class="btn-chip" data-preset="magic(4)">magic(4)</button>
+      <button class="btn-chip" data-preset="[U, S, V] = svd([4 -1 1; -1 4.25 2.75; 1 2.75 3.5])">SVD 3×3</button>
+      <button class="btn-chip" data-preset="[X, Y, Z] = peaks(40); figure(1); clf; surf(X, Y, Z); colormap('turbo'); colorbar(); title('peaks(40)');">Superficie 3D</button>
+      <button class="btn-chip" data-preset="t = 0:0.02:2*pi; figure(1); clf; plot(t, sin(t), 'b-'); hold on; plot(t, cos(t), 'r-'); legend('sin(t)', 'cos(t)'); title(' Osciladores Armónicos');">Plot 2D</button>
+      <button class="btn-chip" data-preset="whos">whos</button>
+      <button class="btn-chip" data-preset="ver">ver</button>
+    </div>
+
+    <div class="ribbon-spacer"></div>
+
+    <div class="ribbon-group">
+      <button id="btn-clear-ws" class="btn-ghost" title="Limpiar Workspace y cerrar figuras (clear; close all)">
+        Limpiar Workspace
+      </button>
+    </div>
+  </section>
+
+  <!-- Cinta PLOTS: recetas rápidas sobre datos del Workspace -->
+  <section id="toolstrip-plots" class="action-ribbon toolstrip-group" hidden>
+    <div class="ribbon-group">
+      <span class="ribbon-caption">Line Plots:</span>
+      <button class="btn-chip" data-preset="plot(ans)">plot</button>
+      <button class="btn-chip" data-preset="stairs(ans)">stairs</button>
+      <button class="btn-chip" data-preset="stem(ans)">stem</button>
+      <button class="btn-chip" data-preset="scatter(ans(:,1), ans(:,2))">scatter</button>
+    </div>
+    <div class="ribbon-divider"></div>
+    <div class="ribbon-group">
+      <span class="ribbon-caption">Matrices 3D:</span>
+      <button class="btn-chip" data-preset="surf(ans)">surf</button>
+      <button class="btn-chip" data-preset="mesh(ans)">mesh</button>
+      <button class="btn-chip" data-preset="imagesc(ans); colorbar()">imagesc</button>
+      <button class="btn-chip" data-preset="contour(ans)">contour</button>
+    </div>
+    <div class="ribbon-spacer"></div>
+    <div class="ribbon-group">
+      <span class="ribbon-caption">Selecciona una variable en Workspace y luego usa un plot rápido.</span>
+    </div>
+  </section>
+
+  <!-- Cinta APPS: paneles instalados -->
+  <section id="toolstrip-apps" class="action-ribbon toolstrip-group" hidden>
+    <div class="ribbon-group">
+      <button class="btn-toolstrip" data-goto-tab="simulink" title="Abrir Simulink PID">
+        <span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="15" height="15"><rect x="1" y="2" width="14" height="12" rx="1" fill="#fff" stroke="#7d7d7d"/><rect x="3" y="4" width="3" height="3" fill="#268cdd"/><rect x="10" y="4" width="3" height="3" fill="#77ac30"/><path d="M6 5.5h4" stroke="#212121"/></svg></span>
+        Simulink PID
+      </button>
+      <button class="btn-toolstrip" data-goto-tab="copilot" title="Abrir Copilot UI Framework">
+        <span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="15" height="15"><circle cx="8" cy="8" r="6.5" fill="#fff" stroke="#268cdd"/><path d="M5 8l2 2 4-4" stroke="#268cdd" stroke-width="1.4" fill="none"/></svg></span>
+        Copilot UI
+      </button>
+    </div>
+    <div class="ribbon-spacer"></div>
+    <div class="ribbon-group">
+      <span class="ribbon-caption">Apps instaladas del entorno reconstruido.</span>
+    </div>
+  </section>
+
+  <!-- Cinta REA: acceso a evidencia y puente nativo -->
+  <section id="toolstrip-rea" class="action-ribbon toolstrip-group" hidden>
+    <div class="ribbon-group">
+      <button class="btn-toolstrip" data-goto-tab="rea" title="Abrir Evidencia REA y Puente Nativo">
+        <span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="15" height="15"><path d="M8 1l6 3v5c0 3.5-2.5 5.5-6 6-3.5-.5-6-2.5-6-6V4z" fill="#fff" stroke="#1656a7"/><path d="M5.5 8l1.8 1.8L10.8 6" stroke="#1656a7" stroke-width="1.3" fill="none"/></svg></span>
+        Auditoría REA
+      </button>
+    </div>
+    <div class="ribbon-spacer"></div>
+    <div class="ribbon-group">
+      <span class="ribbon-caption">ev_a8557a51 · 11 P/Invoke resueltos en libMatlabEngine.dll</span>
+    </div>
+  </section>
+
+  <!-- Barra Current Folder estilo MATLAB Desktop -->
+  <div class="path-bar">
+    <span class="path-label">Current Folder:</span>
+    <code class="path-code">C:\Users\dav\matlab-clone\scripts</code>
+    <span id="last-exec-latency" class="latency-readout">Listo</span>
+  </div>
+
+  <!-- VISTA 1: ENTORNO MATLAB IDE -->
+  <main id="view-ide" class="workspace-view active">
+    <div class="ide-grid">
+      <!-- Columna izquierda: Current Folder + Array Inspector -->
+      <aside class="pane pane-files">
+        <div class="pane-header">
+          <h2>Current Folder (scripts/*.m)</h2>
+        </div>
+        <ul id="script-list" class="script-list"></ul>
+
+        <div class="pane-header pane-subheader">
+          <h2>Inspector de Matriz / Variable</h2>
+          <span id="inspector-var-name" class="mono-badge">Selecciona en Workspace</span>
+        </div>
+        <div id="variable-inspector" class="variable-inspector">
+          <p class="empty-hint">Haz clic en cualquier variable del panel Workspace para inspeccionar sus celdas numéricas.</p>
+        </div>
+      </aside>
+
+      <!-- Columna central: Editor .m + Command Window (jsconsole_ui) -->
+      <section class="pane pane-center">
+        <div class="editor-container">
+          <div class="pane-header">
+            <h2>Editor — <span id="active-script-title" class="mono-accent">spectral_fft.m</span></h2>
+            <span class="pane-meta">UTF-8 · Sintaxis MATLAB R2026b · Ln <span id="editor-ln">1</span>, Col <span id="editor-col">1</span></span>
+          </div>
+          <div class="editor-surface">
+            <div id="editor-gutter" class="editor-gutter" aria-hidden="true">1</div>
+            <textarea id="matlab-editor" class="matlab-editor" spellcheck="false" aria-label="Editor de código MATLAB"></textarea>
+          </div>
+        </div>
+
+        <div class="console-container">
+          <div class="pane-header">
+            <h2>Command Window <span class="mono-subtle">(ui/jsconsole · mw-mvm/impl/Connection)</span></h2>
+            <button id="btn-clc" class="btn-mini">clc</button>
+          </div>
+          <div id="command-output" class="command-output" aria-live="polite"></div>
+          <form id="command-form" class="command-input-row">
+            <span class="prompt-glyph" aria-hidden="true">&gt;&gt;</span>
+            <input
+              id="command-input"
+              type="text"
+              class="command-input"
+              placeholder="Escribe una expresión MATLAB (ej. A = magic(4), eig(A), plot(sin(0:0.1:6))) y presiona Enter..."
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="submit" class="btn-send">Evaluar</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- Columna derecha: Figures (Handle Graphics) + Workspace Browser -->
+      <aside class="pane pane-right">
+        <div class="figures-container">
+          <div class="pane-header">
+            <h2>Figures <span class="mono-subtle">(hg.jar Handle Graphics)</span></h2>
+            <div id="figure-tabs" class="figure-tabs"></div>
+          </div>
+          <div id="figure-viewport" class="figure-viewport">
+            <div class="empty-figure">
+              <p>Sin figuras activas.</p>
+              <span>Ejecuta <code>spectral_fft.m</code>, <code>surface_peaks_3d.m</code> o usa <code>plot(...)</code> / <code>surf(...)</code>.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="workspace-container">
+          <div class="pane-header">
+            <h2>Workspace <span class="mono-subtle">(MathWorks.MATLAB.Types)</span></h2>
+            <span id="workspace-count" class="mono-badge">0 vars</span>
+          </div>
+          <div class="table-scroll">
+            <table class="ws-table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Clase</th>
+                  <th>Tamaño</th>
+                  <th>Valor / Resumen</th>
+                </tr>
+              </thead>
+              <tbody id="workspace-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="history-container">
+          <div class="pane-header">
+            <h2>Command History <span class="mono-subtle">(persistido en sesión)</span></h2>
+            <button id="btn-clear-history" class="btn-mini" title="Borrar command history">Borrar</button>
+          </div>
+          <ul id="command-history-list" class="command-history-list"></ul>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- APP 1: SIMULINK PID (ventana de app estilo MATLAB Desktop) -->
+  <main id="view-simulink" class="workspace-view app-window" data-app-tab="simulink">
+    <div class="app-window-bar">
+      <span class="app-window-title">Simulink — Control Design · Lazo Cerrado PID</span>
+      <button class="app-window-close" data-close-tab="simulink" title="Volver al escritorio (cerrar app)">✕</button>
+    </div>
+    <div class="simulink-layout">
+      <section class="pane simulink-canvas-pane">
+        <div class="pane-header">
+          <h2>Simulink Control Design — Lazo Cerrado PID + Planta de 2º Orden</h2>
+          <button id="btn-run-simulink" class="btn-primary">▶ Simular Modelo y Exportar a Workspace</button>
+        </div>
+
+        <!-- Diagrama de bloques SVG interactivo -->
+        <div class="block-diagram-wrapper">
+          <svg viewBox="0 0 860 210" class="simulink-svg" aria-label="Diagrama de bloques Simulink">
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#0072BD" />
+              </marker>
+            </defs>
+            <!-- Escalón r(t) -->
+            <rect x="24" y="62" width="96" height="56" fill="#FFFFFF" stroke="#0072BD" stroke-width="1.5"/>
+            <text x="72" y="86" text-anchor="middle" fill="#1A1A1A" font-size="12" font-weight="600">Step r(t)</text>
+            <text id="svg-step-label" x="72" y="104" text-anchor="middle" fill="#555555" font-size="11">Amp = 1.0</text>
+
+            <!-- Línea r(t) -> Sumador -->
+            <line x1="120" y1="90" x2="182" y2="90" stroke="#0072BD" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+            <!-- Sumador -->
+            <circle cx="204" cy="90" r="20" fill="#FFFFFF" stroke="#0072BD" stroke-width="1.5"/>
+            <text x="195" y="88" fill="#77AC30" font-size="13" font-weight="700">+</text>
+            <text x="201" y="106" fill="#C00000" font-size="14" font-weight="700">−</text>
+
+            <!-- Línea e(t) -> PID -->
+            <line x1="224" y1="90" x2="296" y2="90" stroke="#0072BD" stroke-width="1.5" marker-end="url(#arrow)"/>
+            <text x="260" y="80" text-anchor="middle" fill="#555555" font-size="11">e(t)</text>
+
+            <!-- Controlador PID -->
+            <rect x="300" y="54" width="165" height="72" fill="#FDF3EE" stroke="#D95319" stroke-width="1.5"/>
+            <text x="382" y="78" text-anchor="middle" fill="#B04410" font-size="12" font-weight="600">PID Controller Gc(s)</text>
+            <text id="svg-pid-label" x="382" y="98" text-anchor="middle" fill="#1A1A1A" font-size="11">Kp + Ki/s + Kd·s</text>
+            <text x="382" y="114" text-anchor="middle" fill="#555555" font-size="10">Saturación ±25V</text>
+
+            <!-- Línea u(t) -> Planta -->
+            <line x1="465" y1="90" x2="538" y2="90" stroke="#0072BD" stroke-width="1.5" marker-end="url(#arrow)"/>
+            <text x="502" y="80" text-anchor="middle" fill="#555555" font-size="11">u(t)</text>
+
+            <!-- Planta 2do Orden -->
+            <rect x="542" y="54" width="176" height="72" fill="#FFFFFF" stroke="#0072BD" stroke-width="1.5"/>
+            <text x="630" y="78" text-anchor="middle" fill="#0072BD" font-size="12" font-weight="600">Planta 2º Orden Gp(s)</text>
+            <text id="svg-plant-label" x="630" y="99" text-anchor="middle" fill="#1A1A1A" font-size="11">ωn² / (s² + 2ζωns + ωn²)</text>
+
+            <!-- Línea Salida -> Scope -->
+            <line x1="718" y1="90" x2="778" y2="90" stroke="#0072BD" stroke-width="1.5" marker-end="url(#arrow)"/>
+            <text x="745" y="80" text-anchor="middle" fill="#555555" font-size="11">y(t)</text>
+
+            <!-- Scope -->
+            <rect x="782" y="62" width="58" height="56" fill="#FFFFFF" stroke="#77AC30" stroke-width="1.5"/>
+            <text x="811" y="94" text-anchor="middle" fill="#1A1A1A" font-size="11" font-weight="600">Scope</text>
+
+            <!-- Realimentación unitaria -->
+            <polyline points="748,90 748,172 204,172 204,114" fill="none" stroke="#0072BD" stroke-width="1.5" marker-end="url(#arrow)"/>
+            <text x="476" y="164" text-anchor="middle" fill="#555555" font-size="11">Realimentación Unitaria H(s) = 1</text>
+          </svg>
+        </div>
+
+        <div class="simulink-controls-grid">
+          <div class="param-card">
+            <h3>Parámetros del Controlador PID</h3>
+            <label>Ganancia Proporcional (Kp): <input id="sim-kp" type="number" step="0.1" value="2.4" /></label>
+            <label>Ganancia Integral (Ki): <input id="sim-ki" type="number" step="0.1" value="1.1" /></label>
+            <label>Ganancia Derivativa (Kd): <input id="sim-kd" type="number" step="0.05" value="0.35" /></label>
+          </div>
+          <div class="param-card">
+            <h3>Planta Dinámica y Horizonte</h3>
+            <label>Frecuencia Natural ωn (rad/s): <input id="sim-wn" type="number" step="0.2" value="3.2" /></label>
+            <label>Factor de Amortiguamiento ζ: <input id="sim-zeta" type="number" step="0.05" value="0.45" /></label>
+            <label>Tiempo Final (s): <input id="sim-tf" type="number" step="1" value="10" /></label>
+          </div>
+          <div class="param-card metrics-card">
+            <h3>Métricas de Respuesta Transitoria</h3>
+            <div class="metric-row"><span>Sobreimpulso (%OS):</span> <strong id="metric-os">-</strong></div>
+            <div class="metric-row"><span>Tiempo de Establecimiento (2%):</span> <strong id="metric-ts">-</strong></div>
+            <div class="metric-row"><span>Error en Estado Estacionario:</span> <strong id="metric-ess">-</strong></div>
+            <div class="metric-row"><span>Valor Pico y_max:</span> <strong id="metric-peak">-</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="pane simulink-plot-pane">
+        <div class="pane-header">
+          <h2>Salida del Scope Simulink (Figure 4)</h2>
+        </div>
+        <div id="simulink-figure-box" class="figure-viewport">
+          <div class="empty-figure">
+            <p>Haz clic en «Simular Modelo» para integrar las ecuaciones de estado y graficar y(t) y u(t).</p>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- APP 2: COPILOT UI FRAMEWORK (ventana de app estilo MATLAB Desktop) -->
+  <main id="view-copilot" class="workspace-view app-window" data-app-tab="copilot">
+    <div class="app-window-bar">
+      <span class="app-window-title">MATLAB Copilot UI Framework <span class="mono-subtle">(ui/copilot_ui_framework)</span></span>
+      <button class="app-window-close" data-close-tab="copilot" title="Volver al escritorio (cerrar app)">✕</button>
+    </div>
+    <div class="copilot-layout">
+      <div class="pane">
+        <div class="pane-header">
+          <h2>MATLAB Copilot UI Framework <span class="mono-subtle">(Reconstruido de ui/copilot_ui_framework · ev_3300396e...)</span></h2>
+        </div>
+        <div class="copilot-body">
+          <p class="copilot-intro">
+            Selecciona una plantilla de ingeniería verificada para enviarla al Editor `.m` y ejecutarla inmediatamente sobre la MATLAB Virtual Machine:
+          </p>
+          <div class="copilot-cards" id="copilot-templates"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- APP 3: AUDITORÍA REA (ventana de app estilo MATLAB Desktop) -->
+  <main id="view-rea" class="workspace-view app-window" data-app-tab="rea">
+    <div class="app-window-bar">
+      <span class="app-window-title">Auditoría REA v6.5.0 · Puente Nativo C++/.NET</span>
+      <button class="app-window-close" data-close-tab="rea" title="Volver al escritorio (cerrar app)">✕</button>
+    </div>
+    <div class="rea-layout">
+      <section class="pane">
+        <div class="pane-header">
+          <h2>Puente Nativo C++ / .NET P/Invoke — <code>libMatlabEngine.dll</code></h2>
+          <span class="mono-badge">ev_a8557a51d9338b26b01fd6067380701e6c52d37b87ddf78a41cbcfa02502d5bb</span>
+        </div>
+        <div class="rea-section-body">
+          <div class="probe-bar">
+            <label for="probe-input">Sondear artefacto en <code>C:\Program Files\MATLAB\R2026b\</code>:</label>
+            <input id="probe-input" type="text" value="bin/win64/MATLAB.exe" class="probe-input" />
+            <button id="btn-probe-file" class="btn-primary">Inspeccionar Binario (SHA-256 &amp; PE)</button>
+          </div>
+          <pre id="probe-result" class="probe-result">Selecciona un archivo relativo (ej. bin/win64/MATLABWindow.exe o extern/bin/win64/libMatlabDataArray.dll) y presiona Inspeccionar.</pre>
+
+          <h3 class="sub-heading">11 Símbolos Nativos P/Invoke Resueltos en Memoria (WinDLL)</h3>
+          <div class="table-scroll">
+            <table class="ws-table">
+              <thead>
+                <tr>
+                  <th>Token ImplMap</th>
+                  <th>Token Método</th>
+                  <th>Función Exportada (libMatlabEngine)</th>
+                  <th>Convención</th>
+                  <th>Dirección en Memoria</th>
+                </tr>
+              </thead>
+              <tbody id="pinvoke-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="pane">
+        <div class="pane-header">
+          <h2>Ledger de Evidencia Autenticada REA v6.5.0</h2>
+          <span id="rea-ledger-count" class="mono-badge">9 evidencias</span>
+        </div>
+        <div id="rea-evidence-cards" class="rea-evidence-list"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Barra de estado inferior (MATLAB Desktop status bar) -->
+  <footer class="status-bar">
+    <span id="status-message" class="status-msg">Ready</span>
+    <span class="status-sep"></span>
+    <span class="status-item mono-subtle" id="status-cmd">Command Window</span>
+    <span class="status-sep"></span>
+    <span class="status-item mono-subtle" id="status-pos">Ln 1, Col 1</span>
+    <span class="status-sep"></span>
+    <span class="status-item mono-subtle" id="status-num">Num</span>
+    <span class="status-spacer"></span>
+    <span class="status-item mono-subtle" id="status-engine">MVM · mw-mvm/impl/Connection</span>
+    <span class="status-sep"></span>
+    <span class="status-item mono-subtle">R2026b</span>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
