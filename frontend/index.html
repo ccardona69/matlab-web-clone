@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MATLAB R2026b — REA Reconstructed Workbench</title>
+  <link rel="stylesheet" href="/api/assets/fonts.css" />
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
@@ -182,19 +183,21 @@
             <h2>Command Window <span class="mono-subtle">(ui/jsconsole · mw-mvm/impl/Connection)</span></h2>
             <button id="btn-clc" class="btn-mini">clc</button>
           </div>
-          <div id="command-output" class="command-output" aria-live="polite"></div>
-          <form id="command-form" class="command-input-row">
-            <span class="prompt-glyph" aria-hidden="true">&gt;&gt;</span>
-            <input
-              id="command-input"
-              type="text"
-              class="command-input"
-              placeholder="Escribe una expresión MATLAB (ej. A = magic(4), eig(A), plot(sin(0:0.1:6))) y presiona Enter..."
-              autocomplete="off"
-              spellcheck="false"
-            />
-            <button type="submit" class="btn-send">Evaluar</button>
-          </form>
+          <div id="command-output" class="command-output commandWindow" aria-live="polite">
+            <div id="cw-promptline" class="cw-promptline">
+              <span class="cw-promptmark" aria-hidden="true">&gt;&gt;</span>
+              <input
+                id="command-input"
+                type="text"
+                class="cw-input"
+                autocomplete="off"
+                spellcheck="false"
+                aria-label="Entrada de comandos MATLAB"
+              />
+              <span class="cw-fx" title="Buscar funciones" aria-hidden="true">fx</span>
+            </div>
+          </div>
+          <div id="cw-completion-popup" class="cw-completions" hidden></div>
         </div>
       </section>
 
