@@ -17,3 +17,15 @@ venv/
 !/rea/ui-analysis/ui-components-details.json
 /rea/reconstructed/
 /rea/recovered-src/
+
+# MATLAB installation assets: PROHIBIDO en el repo (solo runtime via MATLAB_ROOT,
+# ver docs/OWNERSHIP.md regla 3 y backend/local_assets.py). Guard por extension:
+*.woff
+*.woff2
+*.ttf
+*.otf
+*.eot
+# Guard por carpeta (copias locales accidentales):
+/local-assets/
+/frontend/matlab-assets/
+/vendor/matlab/
