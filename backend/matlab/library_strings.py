@@ -183,7 +183,10 @@ def bi_num2str(I: Any, args: list[Any], nargout: int) -> Any:
     a = real(v)
     if len(args) == 2:
         if is_text(args[1]):
-            return make_char(format_printf(chars_of(args[1]), a.ravel(order="F").tolist()))
+            fmt = chars_of(args[1])
+            if not re.search(r"%[-+ 0#]*\d*(?:\.\d+)?[diouxXeEfgGcs%]", fmt):
+                raise MatlabError(f"'{fmt}' is an invalid format.", "MATLAB:num2str:fmtInvalid")
+            return make_char(format_printf(fmt, a.ravel(order="F").tolist()))
         prec = ival(args[1])
         return _rows_to_char([[f"{x:.{prec}g}" for x in row] for row in a], "  ")
     return _num_rows(a)
@@ -477,9 +480,28 @@ def bi_strsplit(I: Any, args: list[Any], nargout: int) -> Any:
 @builtin("strjoin", "join")
 def bi_strjoin(I: Any, args: list[Any], nargout: int) -> Any:
     nargchk(args, 1, 2)
+    if not isinstance(args[0], (MCell, MString)):
+        raise MatlabError(
+            "First input must be a string array or cell array of character vectors.",
+            "MATLAB:strjoin:InvalidCellType",
+        )
     items = string_list(args[0])
     delim = process_escapes(chars_of(args[1])) if len(args) > 1 else " "
     return make_char(delim.join(items))
+
+
+@builtin("strmatch")
+def bi_strmatch(I: Any, args: list[Any], nargout: int) -> Any:
+    nargchk(args, 2, 3)
+    pat = chars_of(args[0])
+    src = args[1]
+    if isinstance(src, MCell):
+        items = [chars_of(x) for x in src.data.ravel(order="F")]
+    else:
+        items = [chars_of(src)]
+    exact = len(args) >= 3 and chars_of(args[2]).startswith("exact")
+    hits = [i + 1 for i, s in enumerate(items) if (s == pat if exact else s.startswith(pat))]
+    return np.array([hits], dtype=float).reshape(1, -1)
 
 
 @builtin("replace")

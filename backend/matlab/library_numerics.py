@@ -46,7 +46,7 @@ def _scalar_fn(I: Any, f: Any) -> Callable[[float], float]:
 def _square(a: Any, name: str) -> np.ndarray:
     m = as2d(to_double(a)).astype(complex if np.iscomplexobj(to_double(a)) else float)
     if m.shape[0] != m.shape[1]:
-        raise MatlabError(f"{name}: Matrix must be square.", "MATLAB:square")
+        raise MatlabError("Matrix must be square.", "MATLAB:square")
     return m
 
 
@@ -59,10 +59,10 @@ def bi_inv(I: Any, args: list[Any], nargout: int) -> Any:
     if a.size == 0:
         return empty_double()
     if np.linalg.matrix_rank(a) < a.shape[0]:
-        I.warn("Matrix is singular to working precision.")
+        I.warn("Matrix is singular to working precision.", "MATLAB:singularMatrix")
         return np.full(a.shape, np.inf)
     if np.linalg.cond(a) > 1 / EPS:
-        I.warn("Matrix is close to singular or badly scaled. Results may be inaccurate. RCOND = %.6e." % (1 / np.linalg.cond(a)))
+        I.warn("Matrix is close to singular or badly scaled. Results may be inaccurate. RCOND = %.6e." % (1 / np.linalg.cond(a)), "MATLAB:nearlySingularMatrix")
     return tidy(np.linalg.inv(a))
 
 
@@ -226,7 +226,10 @@ def bi_polyfit(I: Any, args: list[Any], nargout: int) -> Any:
     nargchk(args, 3, 3)
     x, y = _vec(args[0]), _vec(args[1])
     if x.size != y.size:
-        raise MatlabError("X and Y vectors must be the same size.")
+        raise MatlabError(
+            "The query points and the fitted values must have the same number of elements.",
+            "MATLAB:polyfit:XYSizeMismatch",
+        )
     coeffs = np.polyfit(np.real(x), np.real(y), ival(args[2]))
     return _row(coeffs)
 
@@ -436,6 +439,8 @@ def bi_interp1(I: Any, args: list[Any], nargout: int) -> Any:
     rest = list(args)
     if len(args) >= 3 and not is_text(args[2]):
         x, y, xi = _vec(args[0]), _vec(args[1]), as2d(to_double(args[2]))
+        if x.size != y.size:
+            raise MatlabError("X and V must be of the same length.", "MATLAB:interp1:YVectorInvalidNumRows")
         rest = args[3:]
     else:
         y, xi = _vec(args[0]), as2d(to_double(args[1]))

@@ -43,12 +43,13 @@ def bi_format(I: Any, args: list[Any], nargout: int) -> Any:
         return None
     for arg in args:
         token = text(arg).lower()
-        if token in ("short", "long", "shorte", "longe", "shortg", "longg"):
+        if token in ("short", "long", "shorte", "longe", "shortg", "longg",
+                     "shorteng", "longeng", "rat", "hex", "bank"):
             I.fmt.numeric = token
-        elif token in ("shorte", "longe"):
-            I.fmt.numeric = token
-        elif token == "rat":
-            I.fmt.numeric = "short"
+        elif token in ("+", "plus"):
+            I.fmt.numeric = "plus"
+        elif token == "eng" and I.fmt.numeric in ("short", "long"):
+            I.fmt.numeric = I.fmt.numeric + "eng"
         elif token in ("compact", "loose"):
             I.fmt.spacing = token
         elif token == "g" and I.fmt.numeric in ("short", "long"):
@@ -69,12 +70,17 @@ def bi_pwd(I: Any, args: list[Any], nargout: int) -> Any:
 def bi_cd(I: Any, args: list[Any], nargout: int) -> Any:
     if not args:
         return make_char(str(I.folder))
-    target = (I.folder / text(args[0])).resolve()
+    raw = text(args[0])
+    base = Path(raw)
+    target = (base if base.is_absolute() else (I.folder / base)).resolve()
+    if not target.is_dir():
+        raise MatlabError(
+            f"Unable to change current folder to '{raw}' (Name is nonexistent or not a folder).",
+            "MATLAB:cd:NonExistentFolder",
+        )
     root = I.folder.resolve()
     if target != root and root not in target.parents:
         raise MatlabError("Cannot change directory outside the project scripts folder.")
-    if not target.is_dir():
-        raise MatlabError(f"Cannot change directory to '{text(args[0])}'.")
     I.folder = target
     return None
 
@@ -115,8 +121,36 @@ def bi_edit(I: Any, args: list[Any], nargout: int) -> Any:
 @builtin("run")
 def bi_run(I: Any, args: list[Any], nargout: int) -> Any:
     nargchk(args, 1, 1)
-    I.call_named(text(args[0]), [], 0)
+    name = text(args[0])
+    if not (I.folder / name).is_file():
+        raise MatlabError(f"{name} not found.", "MATLAB:run:FileNotFound")
+    stem = name[:-2] if name.lower().endswith(".m") else name
+    I.call_named(stem, [], 0)
     return None
+
+
+@builtin("delete")
+def bi_delete(I: Any, args: list[Any], nargout: int) -> Any:
+    for a in args:
+        name = text(a)
+        path = I.folder / name
+        if path.is_file():
+            path.unlink()
+        elif not path.exists():
+            I.warn(f"File '{name}' not found.", "MATLAB:DELETE:FileNotFound")
+    return None
+
+
+@builtin("load")
+def bi_load(I: Any, args: list[Any], nargout: int) -> Any:
+    nargchk(args, 1, 2)
+    name = text(args[0])
+    if not (I.folder / name).is_file():
+        raise MatlabError(f'Unable to find file or directory "{name}".', "MATLAB:load:couldNotReadFile")
+    raise MatlabError(
+        f'Reading MAT-files is not implemented in the clone yet ("{name}").',
+        "MATLAB:load:couldNotReadFile",
+    )
 
 
 @builtin("version", "ver")
@@ -252,14 +286,21 @@ def bi_who(I: Any, args: list[Any], nargout: int) -> Any:
 def bi_whos(I: Any, args: list[Any], nargout: int) -> Any:
     from backend.matlab.values import bytes_of, shape_of
     names = sorted(I.vars.keys())
+    if args:
+        wanted = {text(a) for a in args}
+        names = [n for n in names if n in wanted]
     if not names:
         return None
-    width = max(len(n) for n in names) + 2
-    lines = [f"{'Name':<{width}}{'Size':<12}{'Bytes':>8}  {'Class':<16}Attributes"]
+    namew = max(10, max(len(n) for n in names) + 2)
+    # Geometría de columnas capturada de MATLAB R2026b (AC-20)
+    header = "  " + "Name".ljust(namew) + "Size".ljust(10) + "Bytes".rjust(11) + "  " + "Class".ljust(10) + "Attributes".ljust(10)
+    lines = [header, ""]
     for name in names:
         value = I.vars[name]
         r, c = shape_of(value)
-        lines.append(f"{name:<{width}}{f'{r}x{c}':<12}{bytes_of(value):>8}  {class_of(value):<16}")
+        row = ("  " + name.ljust(namew) + f"{r}x{c}".ljust(10) + str(bytes_of(value)).rjust(11)
+               + "  " + class_of(value).ljust(10) + " " * 10)
+        lines.append(row)
     I.write("\n".join(lines) + "\n\n")
     return None
 
@@ -343,7 +384,7 @@ def bi_warning(I: Any, args: list[Any], nargout: int) -> Any:
     if first in ("on", "off", "query", "error", "backtrace") or (len(args) == 2 and first in ("on", "off")):
         return None
     if len(args) > 1 and IDENTIFIER_RE.match(first):
-        I.warn(format_printf(chars_of(args[1]), _printf_atoms(args[2:])))
+        I.warn(format_printf(chars_of(args[1]), _printf_atoms(args[2:])), first)
     else:
         I.warn(format_printf(first, _printf_atoms(args[1:])) if len(args) > 1 else first)
     return None
@@ -360,10 +401,10 @@ def bi_assert(I: Any, args: list[Any], nargout: int) -> Any:
     if truthy(args[0]):
         return None
     if len(args) == 1:
-        raise MatlabError("Assertion failed.", "MATLAB:assertion:failed")
+        raise MatlabError("Assertion failed.", "")
     if len(args) == 2:
-        raise MatlabError(chars_of(args[1]), "MATLAB:assertion:failed")
-    raise MatlabError(format_printf(chars_of(args[1]), _printf_atoms(args[2:])), "MATLAB:assertion:failed")
+        raise MatlabError(chars_of(args[1]), "")
+    raise MatlabError(format_printf(chars_of(args[1]), _printf_atoms(args[2:])), "")
 
 
 @builtin("MException")

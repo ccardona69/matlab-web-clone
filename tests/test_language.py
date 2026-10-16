@@ -173,9 +173,10 @@ def test_unique_first_occurrence_by_default() -> None:
 
 
 @pytest.mark.parametrize("code,expected", [
-    ("q = int8([100 200 -300])", "q =\n\n  1×3 int8 row vector\n\n   100   127  -128\n\n"),
-    ("q = int32([1 2 3])", "q =\n\n  1×3 int32 row vector\n\n  1  2  3\n\n"),
-    ("q = uint8(5)", "q =\n\n  uint8\n\n  5\n\n"),
+    # Anchos verificados contra MATLAB R2026b real (clases enteras: w + 3)
+    ("q = int8([100 200 -300])", "q =\n\n  1×3 int8 row vector\n\n    100    127   -128\n\n"),
+    ("q = int32([1 2 3])", "q =\n\n  1×3 int32 row vector\n\n   1   2   3\n\n"),
+    ("q = uint8(5)", "q =\n\n  uint8\n\n   5\n\n"),
 ])
 def test_integer_display_width(code: str, expected: str) -> None:
     _, res = run_ok(code)

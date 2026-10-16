@@ -19,14 +19,13 @@ class MatlabError(Exception):
 
 
 class MatlabSyntaxError(MatlabError):
-    def __init__(self, message: str, line: int = 0, col: int = 0) -> None:
-        super().__init__(message, "MATLAB:parse")
+    def __init__(self, message: str, line: int = 0, col: int = 0, identifier: str = "MATLAB:parse") -> None:
+        super().__init__(message, identifier)
         self.line = line
         self.col = col
 
     def render(self) -> str:
-        loc = f" (línea {self.line}, columna {self.col})" if self.line else ""
-        return f"Error: {self.message}{loc}"
+        return f"Error: {self.message}"
 
 
 def unrecognized(name: str) -> MatlabError:
@@ -50,17 +49,17 @@ def index_exceeds(limit: int, position: int | None = None) -> MatlabError:
     if position is None:
         return MatlabError(
             f"Index exceeds the number of array elements. Index must not exceed {limit}.",
-            "MATLAB:index:outOfBounds",
+            "MATLAB:badsubscript",
         )
     return MatlabError(
         f"Index in position {position} exceeds array bounds. Index must not exceed {limit}.",
-        "MATLAB:index:outOfBounds",
+        "MATLAB:badsubscript",
     )
 
 
 def bad_index() -> MatlabError:
     return MatlabError(
-        "Array indices must be positive integers or logical values.", "MATLAB:index:badsubscript"
+        "Array indices must be positive integers or logical values.", "MATLAB:badsubscript"
     )
 
 

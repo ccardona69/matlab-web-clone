@@ -28,7 +28,7 @@ def nargchk(args: list[Any], lo: int, hi: int | None = None) -> None:
     if len(args) < lo:
         raise MatlabError("Not enough input arguments.", "MATLAB:minrhs")
     if hi is not None and len(args) > hi:
-        raise MatlabError("Too many input arguments.", "MATLAB:TooManyInputs")
+        raise MatlabError("Too many input arguments.", "MATLAB:maxrhs")
 
 
 def dbl(v: Any) -> np.ndarray:

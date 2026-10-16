@@ -34,6 +34,9 @@ def _unary(names: tuple[str, ...], fn: Callable[[np.ndarray], np.ndarray],
     def body(I: Any, args: list[Any], nargout: int) -> Any:
         nargchk(args, 1, 1)
         cls = class_of(args[0])
+        if not keeps_class and cls in ("char", "string"):
+            # Capturado de MATLAB R2026b: sqrt/exp/log/sin rechazan char; abs/sign/floor... lo aceptan
+            raise MatlabError("Invalid data type. Argument must be double or single.", "MATLAB:math:mustBeFloat")
         a = dbl(args[0])
         if complex_when is not None and not np.iscomplexobj(a) and np.any(complex_when(a.real)):
             a = a.astype(complex)

@@ -179,7 +179,50 @@ def _power(x: np.ndarray, y: np.ndarray) -> np.ndarray:
         return np.power(xf, yf)
 
 
-WARN_SINK: list[str] = []
+WARN_SINK: list[tuple[str, str]] = []
+
+
+def _basic_solution_qr(A: np.ndarray, B: np.ndarray) -> np.ndarray:
+    """Solución básica de MATLAB para el sistema subdeterminado (QR con pivoteo de columnas).
+
+    MATLAB no usa la solución de norma mínima: el pivoteo elige columnas de mayor norma
+    y las variables libres quedan en cero, como el backend LAPACK xGELSY.
+    """
+    m, n = A.shape
+    dtype = complex if (np.iscomplexobj(A) or np.iscomplexobj(B)) else float
+    work = np.array(A, dtype=dtype, copy=True)
+    Q = np.eye(m, dtype=dtype)
+    cols = list(range(n))
+    for k in range(m):
+        norms = np.linalg.norm(work[k:, k:], axis=0)
+        if norms.size == 0:
+            break
+        j = k + int(np.argmax(norms))
+        if j != k:
+            work[:, [k, j]] = work[:, [j, k]]
+            cols[k], cols[j] = cols[j], cols[k]
+        x = work[k:, k].copy()
+        nx = np.linalg.norm(x)
+        if nx < 1e-300:
+            continue
+        v = x
+        if x[0] != 0:
+            v[0] += nx * (x[0] / abs(x[0]))
+        else:
+            v[0] += nx
+        v = v / np.linalg.norm(v)
+        work[k:, k:] -= 2.0 * np.outer(v, np.conj(v) @ work[k:, k:])
+        Q[:, k:] -= 2.0 * np.outer(Q[:, k:] @ v, np.conj(v))
+    try:
+        R = work[:m, :m]
+        y = np.linalg.solve(R, (np.conj(Q.T) @ B)[:m])
+        sol = np.zeros((n, B.shape[1]), dtype=dtype)
+        for idx, col in enumerate(cols[:m]):
+            sol[col, :] = y[idx, :]
+        return sol
+    except np.linalg.LinAlgError:
+        sol, *_ = np.linalg.lstsq(np.asarray(A, dtype=float), np.asarray(B, dtype=float), rcond=None)
+        return sol
 
 
 def mldivide(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -192,16 +235,21 @@ def mldivide(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     if A.shape[0] == A.shape[1]:
         cond = np.linalg.cond(A) if A.size else 0
         if not np.isfinite(cond) or cond > 1 / np.finfo(float).eps:
-            WARN_SINK.append("Warning: Matrix is singular to working precision.")
+            WARN_SINK.append(("Matrix is singular to working precision.", "MATLAB:singularMatrix"))
             with np.errstate(all="ignore"):
                 try:
                     return np.linalg.solve(A, B)
                 except np.linalg.LinAlgError:
                     return np.full((A.shape[1], B.shape[1]), np.inf)
         return np.linalg.solve(A, B)
+    if A.shape[0] < A.shape[1]:
+        # Subdeterminado: MATLAB devuelve la solución básica (QR con pivoteo de columnas)
+        if np.linalg.matrix_rank(A) < min(A.shape):
+            WARN_SINK.append((f"Rank deficient, rank = {np.linalg.matrix_rank(A)}.", ""))
+        return _basic_solution_qr(A, B)
     sol, *_ = np.linalg.lstsq(A, B, rcond=None)
     if np.linalg.matrix_rank(A) < min(A.shape):
-        WARN_SINK.append(f"Warning: Rank deficient, rank = {np.linalg.matrix_rank(A)}.")
+        WARN_SINK.append((f"Rank deficient, rank = {np.linalg.matrix_rank(A)}.", ""))
     return sol
 
 

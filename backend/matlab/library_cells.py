@@ -17,7 +17,13 @@ from backend.matlab.values import (
 
 
 def _dims_of(args: list[Any]) -> tuple[int, int]:
-    vals = [int(x) for x in real(args[0]).ravel()] if len(args) == 1 else [ival(args[0]), ival(args[1])]
+    raw = real(args[0]).ravel() if len(args) == 1 else np.array([ival(args[0]), ival(args[1])], dtype=float)
+    vals = []
+    for x in raw:
+        f = float(x)
+        if not f.is_integer():
+            raise MatlabError("Size inputs must be integers.", "MATLAB:NonIntegerInput")
+        vals.append(int(f))
     if len(args) == 1 and len(vals) == 1:
         vals = [vals[0], vals[0]]
     return max(vals[0], 0), max(vals[1], 0)
@@ -48,6 +54,13 @@ def bi_cell2mat(I: Any, args: list[Any], nargout: int) -> Any:
 def bi_struct(I: Any, args: list[Any], nargout: int) -> Any:
     if not args:
         return MStruct([], None)
+    if len(args) == 1:
+        if isinstance(args[0], MStruct):
+            return args[0].copy()
+        raise MatlabError(
+            f"Conversion to struct from {class_of(args[0])} is not possible.",
+            "MATLAB:invalidConversion",
+        )
     if len(args) % 2:
         raise MatlabError("Invalid arguments to struct. Arguments must be <field,value> pairs.", "MATLAB:struct:WrongNumberOfInputs")
     names = [text(args[i]) for i in range(0, len(args), 2)]
@@ -78,7 +91,12 @@ def _struct_arg(v: Any, name: str) -> MStruct:
 @builtin("fieldnames")
 def bi_fieldnames(I: Any, args: list[Any], nargout: int) -> Any:
     nargchk(args, 1, 1)
-    return cellstr_of(_struct_arg(args[0], "fieldnames").fields, column=True)
+    if not isinstance(args[0], MStruct):
+        raise MatlabError(
+            f"Invalid input argument of type '{class_of(args[0])}'. Input must be a structure or a Java or COM object.",
+            "MATLAB:fieldnames:InvalidInput",
+        )
+    return cellstr_of(args[0].fields, column=True)
 
 
 @builtin("isfield")
@@ -99,7 +117,7 @@ def bi_rmfield(I: Any, args: list[Any], nargout: int) -> Any:
     names = [text(x) for x in cell_items(args[1])] if isinstance(args[1], MCell) else [text(args[1])]
     for name in names:
         if name not in s.fields:
-            raise MatlabError(f"Structure does not contain the field '{name}'.", "MATLAB:rmfield:MissingField")
+            raise MatlabError(f"A field named '{name}' doesn't exist.", "MATLAB:rmfield:InvalidFieldname")
     out = s.copy()
     for d in out.data.flat:
         for name in names:

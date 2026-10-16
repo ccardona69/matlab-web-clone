@@ -40,9 +40,9 @@ class Parser:
         self.p += 1
         return t
 
-    def error(self, msg: str = INVALID_EXPR, tok: Token | None = None) -> MatlabSyntaxError:
+    def error(self, msg: str = INVALID_EXPR, tok: Token | None = None, identifier: str = "MATLAB:parse") -> MatlabSyntaxError:
         t = tok or self.tok
-        return MatlabSyntaxError(msg, t.line, t.col)
+        return MatlabSyntaxError(msg, t.line, t.col, identifier)
 
     def expect_op(self, op: str) -> Token:
         if not self.tok.is_op(op):
@@ -70,7 +70,10 @@ class Parser:
             t = self.tok
             if t.kind == "EOF":
                 if stop and not top and not allow_eof:
-                    raise self.error("At least one END is missing. The statement beginning here does not have a matching end.")
+                    raise self.error(
+                        "At least one END is missing. The statement beginning here does not have a matching end.",
+                        identifier="MATLAB:m_missing_end",
+                    )
                 return body
             if t.kind == "KW" and t.value in stop:
                 return body
@@ -105,6 +108,11 @@ class Parser:
             return True
         if t.kind == "KW" and t.value in ("end", "else", "elseif", "case", "otherwise", "catch"):
             return True
+        if t.kind in ("ID", "NUM", "STR", "DSTR", "KW"):
+            raise self.error(
+                f"Unexpected '{t.value}'. Check for missing multiplication operator.",
+                t, "MATLAB:m_missing_operator",
+            )
         raise self.error()
 
     def parse_statement(self) -> N.Node:
@@ -521,6 +529,8 @@ class Parser:
             raise self.error("Invalid expression. Check for missing or extra characters.")
         if t.kind == "KW":
             raise self.error(f"Illegal use of reserved keyword \"{t.value}\".")
+        if t.is_op(";"):
+            raise self.error("Unexpected ';'. Check for missing or extra characters.", t, "MATLAB:m_unexpected_sep")
         raise self.error()
 
     def parse_matrix(self, opener: str, closer: str, cell: bool) -> N.Node:
@@ -543,7 +553,7 @@ class Parser:
                         rows.append([])
                     continue
                 if t.kind == "EOF":
-                    raise self.error("Invalid expression. Check for missing or mismatched delimiters.")
+                    raise self.error("The statement is incomplete or empty.", t, "MATLAB:m_incomplete_statement")
                 self.index_depth = saved_index_flag
                 rows[-1].append(self.parse_expr())
             self.advance()

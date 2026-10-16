@@ -35,6 +35,14 @@ def wrap_like(v: Any, data: np.ndarray) -> Any:
     return data
 
 
+def _int_dim(v: Any) -> int:
+    """Dimensión entera (MATLAB: Size inputs must be integers)."""
+    f = float(np.nan_to_num(v))
+    if not f.is_integer():
+        raise MatlabError("Size inputs must be integers.", "MATLAB:NonIntegerInput")
+    return int(f)
+
+
 def size_args(args: list[Any]) -> tuple[tuple[int, int], str]:
     """Interpreta (n), (m,n), ([m n]) y un nombre de clase final."""
     vals = list(args)
@@ -53,7 +61,7 @@ def size_args(args: list[Any]) -> tuple[tuple[int, int], str]:
         c = dims[1] if dims.size > 1 else dims[0]
     else:
         r, c = real(vals[0]).ravel()[0], real(vals[1]).ravel()[0]
-    return (max(int(np.nan_to_num(r)), 0), max(int(np.nan_to_num(c)), 0)), cls
+    return (max(_int_dim(r), 0), max(_int_dim(c), 0)), cls
 
 
 def filled(args: list[Any], value: Any) -> np.ndarray:
@@ -184,7 +192,7 @@ def bi_rng(I: Any, args: list[Any], nargout: int) -> Any:
 def bi_linspace(I: Any, args: list[Any], nargout: int) -> Any:
     nargchk(args, 2, 3)
     n = ival(args[2]) if len(args) == 3 else 100
-    return np.linspace(num(args[0]), num(args[1]), max(n, 1)).reshape(1, -1)
+    return np.linspace(num(args[0]), num(args[1]), max(n, 0)).reshape(1, -1)
 
 
 @builtin("logspace")
@@ -290,10 +298,18 @@ def bi_reshape(I: Any, args: list[Any], nargout: int) -> Any:
     known = int(np.prod([d for d in dims if d is not None])) if any(d is not None for d in dims) else 1
     if None in dims:
         if known == 0 or total % known:
-            raise MatlabError("To RESHAPE the number of elements must not change.")
+            raise MatlabError(
+                "Number of elements must not change. Use [] as one of the size inputs to "
+                "automatically calculate the appropriate size for that dimension.",
+                "MATLAB:getReshapeDims:notSameNumel",
+            )
         dims[dims.index(None)] = total // known
     if int(np.prod(dims)) != total:
-        raise MatlabError("To RESHAPE the number of elements must not change.")
+        raise MatlabError(
+            "Number of elements must not change. Use [] as one of the size inputs to "
+            "automatically calculate the appropriate size for that dimension.",
+            "MATLAB:getReshapeDims:notSameNumel",
+        )
     while len(dims) > 2 and dims[-1] == 1:
         dims.pop()
     shape = (dims[0], int(np.prod(dims[1:])))
@@ -650,5 +666,6 @@ def bi_isequaln(I: Any, args: list[Any], nargout: int) -> Any:
 
 
 from backend.matlab import (  # noqa: E402,F401
-    library_cells, library_graphics, library_math, library_numerics, library_strings, library_system,
+    library_cells, library_containers, library_graphics, library_math, library_numerics,
+    library_strings, library_system,
 )

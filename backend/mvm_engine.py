@@ -64,12 +64,15 @@ class MatlabVirtualMachine:
         interp = self.interpreter
         interp.segments = []
         interp.events = []
+        interp.warning_log = []
         t0 = time.perf_counter()
         error_msg: str | None = None
+        error_id: str | None = None
         try:
             interp.run_source(code)
         except MatlabError as exc:
             error_msg = exc.render()
+            error_id = exc.identifier
         except Exception as exc:  # noqa: BLE001 - cualquier fallo interno se muestra como error legible
             logger.exception("Error interno del motor MATLAB")
             error_msg = f"Error interno del clon: {exc}"
@@ -91,6 +94,8 @@ class MatlabVirtualMachine:
             "ok": error_msg is None,
             "output": output_text,
             "error": error_msg,
+            "error_id": error_id,
+            "warnings": [dict(w) for w in interp.warning_log],
             "elapsed_ms": elapsed_ms,
             "workspace": ws_summary,
             "figures": figures,

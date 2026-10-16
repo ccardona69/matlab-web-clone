@@ -16,7 +16,7 @@ from backend.matlab.errors import (
 )
 from backend.matlab.parser import parse
 from backend.matlab.values import (
-    MCell, MFunc, MString, MStruct, as2d, class_of, empty_double, from_python, make_char,
+    MCell, MDictionary, MFunc, MString, MStruct, as2d, class_of, empty_double, from_python, make_char,
     num, to_double, truthy,
 )
 
@@ -54,6 +54,7 @@ class Interpreter:
         self._file_cache: dict[str, tuple[float, N.Program]] = {}
         self._end_stack: list[tuple[Any, int, int]] = []
         self.lastwarn = ""
+        self.warning_log: list[dict[str, str]] = []
 
     # ---------- salida ----------
 
@@ -69,15 +70,20 @@ class Interpreter:
         else:
             self.segments.append({"kind": kind, "text": text})
 
-    def warn(self, message: str) -> None:
+    def warn(self, message: str, identifier: str = "") -> None:
+        if message.startswith("Warning: "):
+            message = message[len("Warning: "):]
+        message = message.rstrip("\n")
         self.lastwarn = message
-        self.write(message if message.startswith("Warning:") else f"Warning: {message}", "warn")
-        if not message.endswith("\n"):
-            self.write("\n", "warn")
+        self.warning_log.append({"id": identifier, "message": message})
+        # En la Command Window el aviso deja una línea en blanco antes de la salida siguiente
+        self.write(f"Warning: {message}\n", "warn")
+        self.write("\n", "warn")
 
     def _flush_warnings(self) -> None:
         while ops.WARN_SINK:
-            self.warn(ops.WARN_SINK.pop(0))
+            message, identifier = ops.WARN_SINK.pop(0)
+            self.warn(message, identifier)
 
     def show(self, name: str, value: Any) -> None:
         self.write(display(name, value, self.fmt, self.width))
@@ -530,15 +536,10 @@ class Interpreter:
             if len(vals) != 1 and not cs_list:
                 return vals[:1] if vals else []
             return vals
-        if isinstance(base, MCell):
-            raise MatlabError(
-                "Dot indexing is not supported for variables of this type.", "MATLAB:dotIndexingNotSupported"
-            )
-        if isinstance(base, MFunc) or isinstance(base, (np.ndarray, MString)):
-            raise MatlabError(
-                "Dot indexing is not supported for variables of this type.", "MATLAB:dotIndexingNotSupported"
-            )
-        raise MatlabError("Dot indexing is not supported for variables of this type.")
+        raise MatlabError(
+            f"Dot indexing is not supported for variables of type {class_of(base)}.",
+            "MATLAB:structRefFromNonStruct",
+        )
 
     def eval_index(self, node: N.Index, nargout: int, cs_list: bool) -> list[Any]:
         base_node = node.base
@@ -547,6 +548,19 @@ class Interpreter:
                 raise unrecognized(base_node.name)
             args = self._eval_call_args(node.args)
             return self.call_named(base_node.name, args, nargout)
+        if isinstance(base_node, N.Field) and isinstance(base_node.base, N.Id) and base_node.base.name not in self.vars:
+            # Llamada cualificada pkg.fn(...): MATLAB resuelve el nombre punteado
+            parts: list[str] = []
+            cur: N.Node = base_node
+            while isinstance(cur, N.Field) and cur.name is not None:
+                parts.append(cur.name)
+                cur = cur.base
+            if isinstance(cur, N.Id) and cur.name not in self.vars:
+                full = ".".join([cur.name] + parts[::-1])
+                if self.resolve(full) is not None:
+                    args = self._eval_call_args(node.args)
+                    return self.call_named(full, args, nargout)
+                raise MatlabError(f"Unable to resolve the name '{full}'.", "MATLAB:undefinedVarOrClass")
         base_vals = self.eval_multi(base_node, 1)
         if not base_vals:
             raise MatlabError("Indexing requires a value.")
@@ -554,6 +568,13 @@ class Interpreter:
         if isinstance(base, MFunc) and not node.brace:
             args = self._eval_call_args(node.args)
             return self.call_function(base, args, nargout)
+        if isinstance(base, MDictionary) and not node.brace:
+            # TODO: diccionarios configurados (con entradas) aún no soportados
+            raise MatlabError(
+                "Unable to perform a lookup in a dictionary with unset key and value types. "
+                "Add entries to the dictionary.",
+                "MATLAB:dictionary:UnconfiguredLookupNotSupported",
+            )
         args = self._eval_index_args(base, node.args)
         if node.brace:
             if not isinstance(base, MCell):
@@ -612,6 +633,11 @@ class Interpreter:
     def call_named(self, name: str, args: list[Any], nargout: int) -> list[Any]:
         target = self.resolve(name)
         if target is None:
+            if args:
+                raise MatlabError(
+                    f"Undefined function '{name}' for input arguments of type '{class_of(args[0])}'.",
+                    "MATLAB:UndefinedFunction",
+                )
             raise unrecognized(name)
         if isinstance(target, tuple):
             if args:

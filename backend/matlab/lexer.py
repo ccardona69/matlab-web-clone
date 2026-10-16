@@ -73,8 +73,8 @@ class Lexer:
         # Callback que decide si un identificador al inicio de sentencia puede usar sintaxis de comando.
         self.command_candidates = command_candidates or (lambda name: True)
 
-    def error(self, msg: str) -> MatlabSyntaxError:
-        return MatlabSyntaxError(msg, self.line, self.i - self.line_start + 1)
+    def error(self, msg: str, identifier: str = "MATLAB:parse") -> MatlabSyntaxError:
+        return MatlabSyntaxError(msg, self.line, self.i - self.line_start + 1, identifier)
 
     def _push(self, kind: str, value: object, start: int, space: bool) -> Token:
         tok = Token(kind, value, self.line, start - self.line_start + 1, start, space)
@@ -260,7 +260,7 @@ class Lexer:
 
         self._push("NL", "\n", self.i, False)
         if self.brackets:
-            raise self.error("Invalid expression. Check for missing or mismatched delimiters.")
+            raise self.error("The statement is incomplete or empty.", "MATLAB:m_incomplete_statement")
         self._push("EOF", None, self.i, False)
         return self.tokens
 
@@ -319,11 +319,13 @@ class Lexer:
         nxt = src[k + 1] if k + 1 < self.n else ""
         if c in "\n;,%=(":
             return False
-        if c in "+-*/\\^<>&|~.:" and (nxt in " \t" or nxt in "=*/^&|" or (c == "." and nxt in "*/^\\'")):
+        if c == "+" and (nxt in ";,%\n" or nxt == ""):
+            pass  # opción literal de comando: `format +` (FM-12)
+        elif c in "+-*/\\^<>&|~.:" and (nxt in " \t" or nxt in "=*/^&|" or (c == "." and nxt in "*/^\\'")):
             return False
         if c == "'" or c == '"':
             pass
-        elif not (c.isalnum() or c in "_-.'\"/\\*?"):
+        elif not (c.isalnum() or c in "_-.'\"/\\*?" or c == "+"):
             return False
         if not self.command_candidates(name):
             return False

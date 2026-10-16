@@ -152,7 +152,7 @@ def as2d(a: np.ndarray) -> np.ndarray:
 
 def from_python(v: Any) -> Any:
     """Convierte un resultado Python/numpy al modelo de valores MATLAB."""
-    if isinstance(v, (MString, MCell, MStruct, MFunc)):
+    if isinstance(v, (MString, MCell, MStruct, MFunc, MMap, MDictionary)):
         return v
     if isinstance(v, np.ndarray):
         if v.dtype == object:
@@ -320,3 +320,20 @@ def bytes_of(v: Any) -> int:
     if isinstance(v, MStruct):
         return sum(bytes_of(x) + 64 for d in v.data.flat for x in d.values()) + 176
     return 32
+
+
+class MMap:
+    """containers.Map mínimo (construcción y presentación)."""
+
+    def __init__(self, key_type: str = "char", value_type: str = "any") -> None:
+        self.keys: list[Any] = []
+        self.values: list[Any] = []
+        self.key_type = key_type
+        self.value_type = value_type
+
+
+class MDictionary:
+    """Objeto dictionary mínimo (aún sin entradas configuradas)."""
+
+    def __init__(self) -> None:
+        self.entries: list[tuple[Any, Any]] = []
