@@ -12,4 +12,5 @@
 - **Entregable:** `frontend/` (HTML/CSS/JS) + `docs/acceptance/ui/shell-checklist.md` con la lista de comprobación visual contra capturas del webgui real.
 - **Aceptación:** checklist al 100% "sin diferencias visibles" para: proporciones de paneles, colores, tipografía, iconografía (assets locales opt-in) y comportamiento de resize.
 - **Límites:** no copiar CSS/HTML/bundles de MathWorks al repo; iconos y fuentes solo en runtime desde la instalación local.
+- **Nota:** la vía de máxima fidelidad es **E1** (ver `WO-06-e1-frontend-original.md`): el webgui REAL de la instalación servido en runtime. Este WO-03 (shell propio, E2) sigue siendo el entregable público y el fallback permanente.
 - **Rama sugerida:** `ws/3-shell-layout`
