@@ -17,9 +17,9 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from backend.local_assets import console_router as mvm_console_router
 from backend.local_assets import router as local_assets_router
 from backend.matlab.display import value_summary
-from backend.matlab.library import BUILTINS
 from backend.matlab.values import MCell, MString, MStruct, as2d, is_char
 from backend.mvm_engine import MatlabVirtualMachine, format_matlab_value
 from backend.rea_ledger import MATLAB_ROOT, get_rea_ledger_payload
@@ -42,6 +42,7 @@ app.add_middleware(
 )
 
 app.include_router(local_assets_router)
+app.include_router(mvm_console_router)
 
 mvm = MatlabVirtualMachine()
 
@@ -93,12 +94,6 @@ def get_workspace() -> dict[str, Any]:
         "variables": mvm.get_workspace_summary(),
         "history": mvm.command_history[-50:],
     }
-
-
-@app.get("/api/mvm/completions")
-def get_mvm_completions() -> dict[str, Any]:
-    """Nombres completables con Tab en la Command Window: builtins + variables del Workspace."""
-    return {"names": sorted(set(BUILTINS) | set(mvm.workspace))}
 
 
 MAX_GRID_ROWS = 50

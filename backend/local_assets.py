@@ -19,14 +19,18 @@ from __future__ import annotations
 import mimetypes
 import os
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, Response
+
+from backend.matlab.library import BUILTINS
 
 _ASSETS_ROOT_ENV = "MATLAB_ROOT"
 _ALLOWED_PREFIXES = ("ui", "sys")
 
 router = APIRouter(prefix="/api/assets", tags=["local-assets"])
+console_router = APIRouter(tags=["mvm"])
 
 
 def _assets_root() -> Path | None:
@@ -98,3 +102,12 @@ def get_local_fonts_css() -> Response:
             )
     body = "\n".join(rules) + ("\n" if rules else "")
     return Response(content=body, media_type="text/css")
+
+
+@console_router.get("/api/mvm/completions")
+def get_mvm_completions() -> dict[str, Any]:
+    """Nombres completables con Tab en la Command Window.
+
+    Devuelve los builtins registrados; el frontend suma las variables del
+    Workspace que ya recibe en cada evaluación (res.workspace)."""
+    return {"names": sorted(BUILTINS)}
