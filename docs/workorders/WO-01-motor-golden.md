@@ -16,11 +16,12 @@
 Completado base (AC-01…AC-20 y catálogo CT/FM):
 
 1. `tests/test_acceptance.py` landea el parser de dorados (creado por OpenCode; Codex no debe reescribirlo, sí ampliarlo).
-2. **AC-01…AC-20: 20/20.** Catálogo `golden-catalogs.txt`: **71/73**, con 2 pendientes documentados como xfail no estricto (`PENDING_CATALOG` en el test):
+2. **AC-01…AC-20: 20/20.** Catálogo `golden-catalogs.txt`: **70/73** en el set estricto, con 3 pendientes documentados como xfail no estricto (`PENDING_CATALOG` en el test):
    - CT-42: `ode45` debe reproducir el número exacto de pasos adaptativos de MATLAB (golden 1×11 vs motor 17×1).
+   - CT-57: `polyfit(x, x, 9)`: el signo de los ceros diminutos (±0.0000) depende del BLAS (OpenBLAS Linux vs Windows); xpass en Windows, no determinista entre plataformas.
    - CT-60: `fzero` sin intervalo con signo debe imprimir el punto exacto de su búsqueda interna (algoritmo de fzero).
 3. Reglas de display calibradas contra capturas reales R2026b (comentadas en `backend/matlab/display.py`): floats `max(w+2, 10/20)`, E `max(w+2, 13/26)`, g `max(w+3, 13/26)`, eng `w+3`, enteros `w+3`, escalar doble entero 6/12, rat 15 fijo, bank `max(14, len+1)`, hex `w+3`, struct/Map con `"x = "`, whos 55 columnas.
 4. Advertencias estructuradas: `execute()` ahora devuelve `error_id` y `warnings[{id,message}]`; `interp.warn(msg, id)`. Errores de parseo usan identificadores `MATLAB:m_*` y render `Error: <msg>` (sin ubicación, como el texto canónico).
 5. `library_containers.py`: `containers.Map()` (presentación) y `dictionary()` (lookup sin configurar → `MATLAB:dictionary:UnconfiguredLookupNotSupported`).
 
-Suite local completa: 164 passed + 2 xfailed. Sin MATLAB requerido.
+Suite local completa: 167 passed + 2 xfailed + 1 xpassed (CT-57 xpass en Windows). Sin MATLAB requerido.

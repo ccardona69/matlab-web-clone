@@ -21,11 +21,13 @@ from backend.mvm_engine import MatlabVirtualMachine
 
 GOLDEN_DIR = Path(__file__).resolve().parent.parent / "docs" / "acceptance"
 
-# Casos del catálogo aún no soportados por el motor (WO-01). xfail no estricto: si alguno pasa,
-# pytest no falla; se van retirando de esta lista al implementarlos.
+# Casos del catálogo con paridad aún pendiente (motor o determinismo entre plataformas).
+# xfail no estricto: si alguno pasa, pytest no falla; se van retirando al implementarlos.
 #   CT-42: ode45 debe reproducir el número exacto de pasos adaptativos de MATLAB (1x11 vs 17x1).
+#   CT-57: polyfit(x, x, 9): el signo de los ceros diminutos (±0.0000) depende del BLAS
+#          (OpenBLAS Linux vs Windows); la paridad byte-exacta no es determinista.
 #   CT-60: fzero sin intervalo con signo debe imprimir el punto exacto de su búsqueda (algoritmo).
-PENDING_CATALOG: set[str] = {"CT-42", "CT-60"}
+PENDING_CATALOG: set[str] = {"CT-42", "CT-57", "CT-60"}
 
 
 @dataclass
