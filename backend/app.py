@@ -17,7 +17,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from backend.e1_probe import router as e1_probe_router
+from backend.e1_desktop import router as e1_desktop_router
 from backend.local_assets import console_router as mvm_console_router
 from backend.local_assets import router as local_assets_router
 from backend.matlab.display import value_summary
@@ -46,7 +46,7 @@ app.include_router(local_assets_router)
 app.include_router(mvm_console_router)
 # E1 probe: catch-all diagnóstico del shell real — debe quedar ÚLTIMO para que
 # cualquier endpoint real implementado arriba tenga precedencia.
-app.include_router(e1_probe_router)
+app.include_router(e1_desktop_router)
 
 mvm = MatlabVirtualMachine()
 
