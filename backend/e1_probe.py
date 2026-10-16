@@ -120,11 +120,15 @@ def _bayeux_reply(msg: dict[str, Any], ok: bool = True) -> dict[str, Any]:
             reply[key] = msg[key]
     ch = msg.get("channel", "")
     if ch == "/meta/handshake":
+        # interval>0: el cliente real reintenta el long-polling a este ritmo;
+        # con 0 martillaba /messageservice/async (miles de POSTs por arranque).
         reply.update(
             version="1.0",
             supportedConnectionTypes=["long-polling", "callback-polling"],
-            advice={"reconnect": "retry", "interval": 0, "timeout": 60000},
+            advice={"reconnect": "retry", "interval": 3000, "timeout": 60000},
         )
+    elif ch == "/meta/connect":
+        reply["advice"] = {"reconnect": "retry", "interval": 3000, "timeout": 60000}
     return reply
 
 
@@ -189,6 +193,43 @@ def serve_real_webgui(relpath: str = "") -> FileResponse:
 def e1_launch() -> Response:
     """Atajo: redirige a /mw/ (la URL canónica del shell real)."""
     return RedirectResponse(url="/mw/", status_code=302)
+
+
+# ---------------------------------------------------------------------------
+# Assets de runtime adicionales del frontend (mismo criterio que /mw/: se sirven
+# desde MATLAB_ROOT, no se copia nada al repo):
+#   - /ui/* → ui/* (p.ej. ui/icons/registry.json, que el toolstrip real pide
+#     para resolver sus iconos; sin él: "Failed to fetch icon").
+#   - /toolbox/matlab/rich_text_component/* → el bundle del componente de texto
+#     enriquecido (mwBundle.rtc_R2026b.js) que el Command Window carga como chunk.
+#   - /toolbox/matlab/rtc_addons/* → chunks de los addons del editor (copilot).
+# ---------------------------------------------------------------------------
+
+_INSTALL_PREFIXES = (
+    "ui",
+    "toolbox/matlab/rich_text_component",
+    "toolbox/matlab/rtc_addons",
+)
+
+
+def _make_install_serve(prefix: str):
+    def _serve(relpath: str = "") -> FileResponse:
+        try:
+            target = _resolve_under_root(f"{prefix}/{relpath}")
+        except HTTPException as exc:
+            if exc.status_code == 404:
+                _record("http", f"GET /{prefix}/{relpath}", status=404)
+            raise
+        return FileResponse(str(target))
+
+    _serve.__name__ = f"serve_install_{prefix.replace('/', '_')}"
+    return _serve
+
+
+for _prefix in _INSTALL_PREFIXES:
+    router.add_api_route(
+        f"/{_prefix}/{{relpath:path}}", _make_install_serve(_prefix), methods=["GET"]
+    )
 
 
 

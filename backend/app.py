@@ -12,12 +12,15 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from backend.e1_messageservice import router as e1_messageservice_router
+from backend.e1_messageservice import try_handle_container as e1_try_handle_container
+from backend.e1_probe import _record_channel as e1_record_channel
 from backend.e1_probe import router as e1_probe_router
 from backend.local_assets import console_router as mvm_console_router
 from backend.local_assets import router as local_assets_router
@@ -149,13 +152,16 @@ async def mvm_websocket(socket: WebSocket) -> None:
 
 def _bayeux_handle(message: dict[str, Any]) -> list[dict[str, Any]]:
     wire_channel = message.get("channel", "")
+    e1_record_channel(wire_channel or "?", message)
     channel = wire_channel[len("/matlab"):] if wire_channel.startswith("/matlab/") else wire_channel
     mid = message.get("id")
     ack: dict[str, Any] = {"channel": wire_channel, "id": mid, "successful": True}
     if channel == "/meta/handshake":
         client_id = str(uuid.uuid4())
         _bus_clients[client_id] = {"subscriptions": set(), "queue": []}
-        return [{**ack, "clientId": client_id, "version": "1.0", "minimumVersion": "1.0", "supportedConnectionTypes": ["long-polling", "websocket"], "advice": {"reconnect": "retry", "interval": 0, "timeout": 0}}]
+        # interval>0: el shell real reintenta el long-polling a este ritmo; con 0
+        # inundaba el endpoint (miles de POSTs por arranque).
+        return [{**ack, "clientId": client_id, "version": "1.0", "minimumVersion": "1.0", "supportedConnectionTypes": ["long-polling", "websocket"], "advice": {"reconnect": "retry", "interval": 3000, "timeout": 60000}}]
     client_id = message.get("clientId")
     state = _bus_clients.get(client_id)
     if channel == "/meta/connect":
@@ -163,7 +169,7 @@ def _bayeux_handle(message: dict[str, Any]) -> list[dict[str, Any]]:
             return [{**ack, "successful": False, "error": "unknown clientId"}]
         notifications = state["queue"][:]
         state["queue"].clear()
-        return [{**ack, "clientId": client_id}] + notifications
+        return [{**ack, "clientId": client_id, "advice": {"reconnect": "retry", "interval": 3000, "timeout": 60000}}] + notifications
     if channel in ("/meta/subscribe", "/meta/unsubscribe"):
         if state is None:
             return [{**ack, "successful": False, "error": "unknown clientId"}]
@@ -197,13 +203,33 @@ def _bayeux_handle(message: dict[str, Any]) -> list[dict[str, Any]]:
         response = {"requestID": data.get("requestID"), "apiVersion": "v7_0", "channelPrefix": "/mvm/user-mvm"}
         _publish_bus_event({"channel": response_channel, "data": response})
         return [{**ack, "clientId": client_id}]
-    return [{**ack, "successful": False, "error": "unsupported channel"}]
+    # Canal no implementado (servicios del escritorio real): se acepta en
+    # silencio, igual que el probe, para no provocar reintentos ni tormentas de
+    # error en el shell. El canal queda registrado en /api/e1/channels.
+    return [{**ack}]
 
 
 @app.post("/matlab/messageservice/async")
+@app.post("/messageservice/async")
+@app.post("/messageservice/async/blue")
+@app.post("/messageservice/binary")
 @app.post("/cometd")
-def cometd_stub(messages: list[dict[str, Any]] | dict[str, Any]) -> list[dict[str, Any]]:
-    """Bayeux subset: handshake/connect/subscribe/unsubscribe and MVM attach/eval publish."""
+def cometd_stub(
+    messages: list[dict[str, Any]] | dict[str, Any], request: Request
+) -> list[dict[str, Any]] | dict[str, Any]:
+    """Bayeux subset: handshake/connect/subscribe/unsubscribe and MVM attach/eval publish.
+
+    El escritorio real (servido en /mw/) usa /messageservice/async* como endpoint
+    Bayeux relativo (sin prefijo /matlab). Sus message-containers (mw-remote) van
+    al motor E1; el resto a _bayeux_handle, con attach/eval de la MVM incluidos.
+    """
+    container = e1_try_handle_container(
+        messages,
+        path=str(request.url.path),
+        base_url=str(request.base_url).rstrip("/"),
+    )
+    if container is not None:
+        return container
     batch = messages if isinstance(messages, list) else [messages]
     responses: list[dict[str, Any]] = []
     for message in batch:
@@ -456,6 +482,11 @@ if FRONTEND_DIR.exists():
 def serve_index() -> FileResponse:
     return FileResponse(str(FRONTEND_DIR / "index.html"))
 
+
+# E1: motor del protocolo de message-containers del shell real (respuestas a
+# CurrentUser/ClientType/ServiceRegistry/AcquireMatlab observadas en capturas).
+# Se registra antes del probe para ganar sobre su fallback diagnóstico.
+app.include_router(e1_messageservice_router)
 
 # E1 probe: catch-all diagnóstico del shell real (webgui de la instalación servido
 # en runtime desde MATLAB_ROOT). Debe quedar ÚLTIMO: cualquier endpoint real
