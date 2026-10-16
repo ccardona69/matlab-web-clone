@@ -19,6 +19,20 @@ uvicorn backend.app:app --reload
 
 Abrir http://localhost:8000
 
+### Modo E1 standalone (mirror local de assets, opcional)
+
+Para servir el shell real (E1) **sin depender de tener MATLAB instalado en
+cada ejecución**, congela una vez los assets HTTP del webgui desde tu
+instalación licenciada a una carpeta local ignorada por git (~120 MB):
+
+```bash
+python scripts/mirror_matlab_webgui.py            # usa MATLAB_ROOT (o --source)
+```
+
+El backend lo detecta automáticamente (`ml-mirror/`) cuando `MATLAB_ROOT` no
+está definido: `GET /mw/` y los assets del shell se sirven del mirror. Nada de
+MathWorks se copia al repo.
+
 ## Pruebas
 
 ```bash
