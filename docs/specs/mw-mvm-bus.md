@@ -67,7 +67,18 @@ El texto llega por separado de la respuesta de `eval`; ambos pueden compartir `r
 
 ### Otras operaciones estructuralmente observadas
 
-`feval` usa `function`, `rhsArgs`, `numOutputsExpected` y opcionalmente `mdaOutputFormat`; cancelación usa `requestIDtoCancel`, cancelación agrupada usa `requestGroupNametoCancel` y puede incluir `interrupt`. Estas rutas se catalogan para orientar futuras compatibilidades; el clon de esta entrega solo ejecuta `eval`.
+`feval` usa `function`, `rhsArgs`, `numOutputsExpected`, `runOptions` (`dequeueMode`, `useNullErrSink`, `eventConnections`) y opcionalmente `mdaOutputFormat`; cancelación usa `requestIDtoCancel`, cancelación agrupada usa `requestGroupNametoCancel` y puede incluir `interrupt`. WO-07 implementa `feval` (`eval`/`evalin` evalúan el arg de cadena; el resto construye la llamada), `mvmSinks`, `subscribeEvent` y `disconnectEvent` (ver `backend/e1_bus_services.py`). Cancelación sigue pendiente.
+
+### Servicios del escritorio respondidos (WO-07)
+
+Además del bus MVM, el shell publica peticiones request→response en otros
+canales Bayeux que WO-07 responde correlacionadas:
+
+| Canal (sin prefijo `/matlab`) | Respuesta |
+|---|---|
+| `/matlab/settingsChannel/Request` | `/matlab/settingsChannel/Response` con `{type:<X>Response, SettingName, SettingValue}` (store en memoria) |
+| `/shortcuts/model/services/request/{op}/...` | `/shortcuts/model/services/response/{op}/...` y `response/{op}` con `{uid, clientId, requestId, payload}` |
+| `/filesystem/{listfolder,operations}/start` | acuse de servicio |
 
 ## Tópicos de alto nivel y nombres de UI
 

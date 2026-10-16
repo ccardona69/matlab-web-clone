@@ -128,3 +128,38 @@ Claves verificadas:
 - Feature flags (`CombinedEditor`, `LiveEditorPagination`): timeout → default `false`.
 - `shortcuts` (`request/add/global` ×82) y `settingsChannel/Request` ×143: protocolos
   petición–respuesta por Bayeux sin respuesta (reintentan); candidatos a stub.
+
+---
+
+## Iteración 3 — servicios del bus respondidos + modo oráculo (2026-10-17)
+
+Con `backend/e1_bus_services.py` (WO-07) los canales request→response que el
+shell publica tras el attach MVM ya obtienen respuesta correlacionada:
+
+| Canal (wire, cliente → backend) | Payload observado | Respuesta publicada |
+|---|---|---|
+| `/matlab/mvm/user-mvm/feval/request` | `{function, rhsArgs[], numOutputsExpected, runOptions:{dequeueMode,useNullErrSink,eventConnections}, requestID}` | `feval/response` + `text/output`/`text/error` (mismo `requestID`); `function=eval`/`evalin` evalúa el arg; el resto construye la llamada |
+| `/matlab/mvm/user-mvm/mvmSinks/request` | `{outSinkTraits:{supportsMore,supportsHotlinks,needsFormattingForDisplay,useDiary,useEcho,useLogging}, errSinkTraits:{...}, requestID}` | `mvmSinks/response` |
+| `/matlab/mvm/user-mvm/subscribeEvent/request` | `{eventName, requestID}` (p. ej. `mlutil::io::UncaughtInterruptEvent`) | `subscribeEvent/response` |
+| `/matlab/mvm/user-mvm/disconnectEvent/request` | `{requestIDtoDisconnect, requestID}` | `disconnectEvent/response` |
+| `/matlab/matlab/settingsChannel/Request` | `{type:"AddListenerMessage"/"GetSettingMessage"/"SetSettingMessage", SettingName, SettingValue?}` | `settingsChannel/Response` con `{type:<X>Response, SettingName, SettingValue}`; store en memoria. Corta la tormenta de ~850 reintentos |
+| `/matlab/shortcuts/model/services/request/*` | `{uid, clientId, requestId, payload}` | `response/{op}/...` y `response/{op}` (cubre ambas suscripciones). Corta ~4100 reintentos |
+| `/matlab/filesystem/{listfolder,operations}/start` | `{}` | acuse |
+
+Observabilidad añadida: cada `/meta/subscribe` queda registrada como
+`subscribe→<canal>` en `/api/e1/channels`, así el mapa muestra los canales de
+respuesta que el shell espera (p. ej. `…/shortcuts/model/services/response/add`).
+
+Primer feval observado del boot real: `function="simulink.online.internal.bootstrap"`
+con `rhsArgs=["{\"keyboardLayout\":\"\",\"locale\":\"en-us\",\"browserSize\":{...}}"]`
+— no es código de usuario; el eval del Command Window llega al implementar la
+cadena completa (attach → sinks → feval).
+
+### Modo oráculo (WO-07)
+
+`MATLAB_CONNECTOR_URL` activa un middleware que proxeé los paths de servicio al
+connector real de MATLAB (strip `Origin`/`Referer`, verify=False, timeout=300s
+para long-poll). `/ui/*`,`/toolbox/*`,`/sys/*` siguen saliendo del disco local
+cuando el archivo existe. `E1_SHELL=jsd` sirve `index-jsd.html`. Con MATLAB
+vivo (`connector.ensureServiceOn`) permite capturar el wire auténtico en
+`/api/e1/request-log` y compararlo 1:1 con las respuestas del emulador.

@@ -33,6 +33,15 @@ El backend lo detecta automáticamente (`ml-mirror/`) cuando `MATLAB_ROOT` no
 está definido: `GET /mw/` y los assets del shell se sirven del mirror. Nada de
 MathWorks se copia al repo.
 
+### Variables de entorno (E1/E2)
+
+| Variable | Efecto |
+|---|---|
+| `MATLAB_ROOT` | Instalación local de MATLAB; sirve `ui/webgui/src` bajo `/mw/` y assets de runtime (`/ui/*`, `/toolbox/*`, `/sys/*`) |
+| `MATLAB_MIRROR` | Raíz alternativa de assets (mirror generado por `scripts/mirror_matlab_webgui.py`) |
+| `MATLAB_CONNECTOR_URL` | **Modo oráculo** (opt-in): proxea los paths de servicio del shell (`/messageservice/*`, `/matlab/*`, `/msh/*`…) al connector real de MATLAB (p. ej. `https://127.0.0.1:31515`). Vacío = emulador propio |
+| `E1_SHELL` | `nologin` (default) o `jsd` para elegir el entry de `/mw/` (`index-nologin.html` vs `index-jsd.html`) |
+
 ## Pruebas
 
 ```bash
