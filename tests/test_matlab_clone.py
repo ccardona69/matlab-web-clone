@@ -6,15 +6,20 @@ Cubre casos normales, casos límite y errores esperados.
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.app import app
 from backend.mvm_engine import MatlabVirtualMachine
-from backend.rea_ledger import get_rea_ledger_payload
+from backend.rea_ledger import MATLAB_ROOT, get_rea_ledger_payload
 
 client = TestClient(app)
 
+# Los asserts contra DLLs/binarios reales solo aplican donde MATLAB R2026b está instalado
+MATLAB_INSTALLED = MATLAB_ROOT.exists()
 
+
+@pytest.mark.skipif(not MATLAB_INSTALLED, reason="requiere instalación local de MATLAB R2026b")
 def test_rea_ledger_and_native_bridge() -> None:
     payload = get_rea_ledger_payload()
     assert payload["release"] == "R2026b"
@@ -114,9 +119,13 @@ def test_fastapi_endpoints_and_simulink() -> None:
     assert sim_res.json()["ok"] is True
     assert "overshoot_pct" in sim_res.json()["metrics"]
 
-    probe_res = client.post("/api/rea/inspect-file", json={"relative_path": "bin/win64/MATLAB.exe"})
-    assert probe_res.status_code == 200
-    assert probe_res.json()["artifact"]["sha256"] == "5380cc41fc6f075ba911b501216c1b9f20df800866358be5b92bdcdb879b596d"
+    if MATLAB_INSTALLED:
+        probe_res = client.post("/api/rea/inspect-file", json={"relative_path": "bin/win64/MATLAB.exe"})
+        assert probe_res.status_code == 200
+        assert probe_res.json()["artifact"]["sha256"] == "5380cc41fc6f075ba911b501216c1b9f20df800866358be5b92bdcdb879b596d"
+    else:
+        probe_res = client.post("/api/rea/inspect-file", json={"relative_path": "bin/win64/MATLAB.exe"})
+        assert probe_res.status_code == 404
 
     bad_probe = client.post("/api/rea/inspect-file", json={"relative_path": "../outside.exe"})
     assert bad_probe.status_code == 400
