@@ -38,3 +38,13 @@ Primer arranque capturado (headless Edge): el shell real carga completo — `ind
 consola** y llega a `uiLifecycle: PAGE_LOAD`; se detiene esperando respuestas del protocolo
 (primer mensaje `CurrentUser`/`ClientType` capturado). Mapa saneado:
 `docs/acceptance/ui/e1-request-map.md`.
+
+**Iteración 2 (mismo día): el escritorio arranca completo.** Implementado
+`backend/e1_messageservice.py` (motor de message-containers: `CurrentUser`, `AcquireMatlab`
+con `computeInfo`, `GetMatlabStatus`, `ServiceRegistry`, `ClientType` + fault de
+`GetCurrentComputeResource`) y ampliado el probe con assets de runtime (`/ui/*`,
+`/toolbox/matlab/rich_text_component/*`, `/toolbox/matlab/rtc_addons/*`) y control de flood
+Bayeux (`advice.interval` 0→3000). Evidencia: consola `PAGE_LOAD → WORKER_CONNECTED →
+WORKER_READY`; toolstrip con iconos reales; worker contestando `CurrentUser`,
+`ClientModulesStarted`, `Ping` en `/messageservice/json/secure`; attach MVM vía Bayeux.
+Detalle y pendientes en `docs/acceptance/ui/e1-request-map.md` (Iteración 2).

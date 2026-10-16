@@ -5,7 +5,9 @@ Si la variable de entorno MATLAB_ROOT apunta a una instalación existente
 (ej. C:\\Program Files\\MATLAB\\R2026b), este router expone:
 
   GET /api/assets/matlab/{relpath}  → sirve un archivo dentro de MATLAB_ROOT
-                                      (solo subárboles permitidos: ui/, sys/fonts)
+                                      (subárboles permitidos: ui/, sys/ y los
+                                      componentes de UI toolbox/matlab/
+                                      {rich_text_component,rtc_addons})
   GET /api/assets/fonts.css         → CSS con @font-face para las fuentes woff
                                       descubiertas en ui/webgui/**/fonts
 
@@ -28,6 +30,13 @@ from backend.matlab.library import BUILTINS
 
 _ASSETS_ROOT_ENV = "MATLAB_ROOT"
 _ALLOWED_PREFIXES = ("ui", "sys")
+# Subárboles puntuales fuera de ui/sys que el shell real también carga en
+# runtime (componentes de UI bajo toolbox/matlab/: el bundle del texto
+# enriquecido del Command Window y los chunks de rtc_addons/copilot).
+_ALLOWED_SUBTREES = (
+    ("toolbox", "matlab", "rich_text_component"),
+    ("toolbox", "matlab", "rtc_addons"),
+)
 
 router = APIRouter(prefix="/api/assets", tags=["local-assets"])
 console_router = APIRouter(tags=["mvm"])
@@ -49,7 +58,11 @@ def _resolve_under_root(relpath: str) -> Path:
     rel = Path(relpath.replace("\\", "/"))
     if rel.is_absolute() or ".." in rel.parts or not rel.parts:
         raise HTTPException(status_code=400, detail="Ruta relativa inválida.")
-    if rel.parts[0].lower() not in _ALLOWED_PREFIXES:
+    lower_parts = tuple(part.lower() for part in rel.parts)
+    allowed = rel.parts[0].lower() in _ALLOWED_PREFIXES or any(
+        lower_parts[: len(subtree)] == subtree for subtree in _ALLOWED_SUBTREES
+    )
+    if not allowed:
         raise HTTPException(status_code=403, detail=f"Subárbol no permitido: {rel.parts[0]}")
 
     target = (root / rel).resolve()

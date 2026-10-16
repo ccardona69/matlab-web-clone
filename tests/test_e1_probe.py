@@ -31,6 +31,21 @@ def test_mw_requires_matlab_root(monkeypatch) -> None:
     assert response.status_code == 404
 
 
+def test_install_asset_prefixes_require_matlab_root(monkeypatch) -> None:
+    # /ui/* y /toolbox/matlab/rich_text_component/* también se sirven en runtime
+    # desde MATLAB_ROOT (registry de iconos del toolstrip + chunk del Command
+    # Window); sin instalación no hay shell real → 404.
+    monkeypatch.delenv("MATLAB_ROOT", raising=False)
+    with TestClient(app) as client:
+        assert client.get("/ui/icons/registry.json").status_code == 404
+        assert (
+            client.get(
+                "/toolbox/matlab/rich_text_component/src/release/bundle.mwBundle.rtc_R2026b.js"
+            ).status_code
+            == 404
+        )
+
+
 def test_catch_all_prefixed_and_recorded() -> None:
     with TestClient(app) as client:
         client.delete("/api/e1/request-log")
