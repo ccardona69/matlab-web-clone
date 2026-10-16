@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from backend.e1_probe import router as e1_probe_router
 from backend.local_assets import console_router as mvm_console_router
 from backend.local_assets import router as local_assets_router
 from backend.matlab.display import value_summary
@@ -454,3 +455,9 @@ if FRONTEND_DIR.exists():
 @app.get("/")
 def serve_index() -> FileResponse:
     return FileResponse(str(FRONTEND_DIR / "index.html"))
+
+
+# E1 probe: catch-all diagnóstico del shell real (webgui de la instalación servido
+# en runtime desde MATLAB_ROOT). Debe quedar ÚLTIMO: cualquier endpoint real
+# implementado arriba tiene precedencia en el matching de rutas de FastAPI.
+app.include_router(e1_probe_router)
