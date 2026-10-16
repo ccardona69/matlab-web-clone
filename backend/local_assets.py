@@ -11,9 +11,11 @@ Si la variable de entorno MATLAB_ROOT apunta a una instalación existente
   GET /api/assets/fonts.css         → CSS con @font-face para las fuentes woff
                                       descubiertas en ui/webgui/**/fonts
 
-Sin MATLAB_ROOT los endpoints devuelven 404 / hoja vacía: el frontend queda
-con sus fuentes e iconos de respaldo. NADA del contenido se copia al repo;
-se lee del disco del usuario en cada petición.
+Raíz de assets (en orden): MATLAB_ROOT → MATLAB_MIRROR → <repo>/ml-mirror. El
+mirror local lo genera scripts/mirror_matlab_webgui.py desde la instalación
+licenciada del usuario (modo standalone). Sin ninguna raíz los endpoints
+devuelven 404 / hoja vacía. NADA del contenido se copia al repo: se lee del
+disco del usuario en cada petición (ml-mirror/ está en .gitignore).
 """
 
 from __future__ import annotations
@@ -29,6 +31,8 @@ from fastapi.responses import FileResponse, Response
 from backend.matlab.library import BUILTINS
 
 _ASSETS_ROOT_ENV = "MATLAB_ROOT"
+_MIRROR_ROOT_ENV = "MATLAB_MIRROR"
+_MIRROR_DIRNAME = "ml-mirror"
 _ALLOWED_PREFIXES = ("ui", "sys")
 # Subárboles puntuales fuera de ui/sys que el shell real también carga en
 # runtime (componentes de UI bajo toolbox/matlab/: el bundle del texto
@@ -42,19 +46,39 @@ router = APIRouter(prefix="/api/assets", tags=["local-assets"])
 console_router = APIRouter(tags=["mvm"])
 
 
+def _default_mirror_root() -> Path | None:
+    """Mirror local del frontend (<repo>/ml-mirror); lo genera el usuario.
+
+    Ver scripts/mirror_matlab_webgui.py. Nunca va al repo (.gitignore): es una
+    copia local de trabajo hecha desde la instalación licenciada del usuario.
+    """
+    candidate = Path(__file__).resolve().parent.parent / _MIRROR_DIRNAME
+    return candidate if candidate.is_dir() else None
+
+
+def _assets_roots() -> list[Path]:
+    """Raíces candidatas, en orden: instalación → mirror explícito → mirror del repo."""
+    roots: list[Path] = []
+    for raw in (os.environ.get(_ASSETS_ROOT_ENV, ""), os.environ.get(_MIRROR_ROOT_ENV, "")):
+        raw = raw.strip()
+        if not raw:
+            continue
+        candidate = Path(raw)
+        if candidate.is_dir() and candidate not in roots:
+            roots.append(candidate)
+    default = _default_mirror_root()
+    if default is not None and default not in roots:
+        roots.append(default)
+    return roots
+
+
 def _assets_root() -> Path | None:
-    raw = os.environ.get(_ASSETS_ROOT_ENV, "").strip()
-    if not raw:
-        return None
-    root = Path(raw)
-    return root if root.is_dir() else None
+    """Primera raíz disponible (para consumidores de una sola raíz)."""
+    roots = _assets_roots()
+    return roots[0] if roots else None
 
 
 def _resolve_under_root(relpath: str) -> Path:
-    root = _assets_root()
-    if root is None:
-        raise HTTPException(status_code=404, detail="MATLAB_ROOT no configurado; assets locales deshabilitados.")
-
     rel = Path(relpath.replace("\\", "/"))
     if rel.is_absolute() or ".." in rel.parts or not rel.parts:
         raise HTTPException(status_code=400, detail="Ruta relativa inválida.")
@@ -65,14 +89,18 @@ def _resolve_under_root(relpath: str) -> Path:
     if not allowed:
         raise HTTPException(status_code=403, detail=f"Subárbol no permitido: {rel.parts[0]}")
 
-    target = (root / rel).resolve()
-    try:
-        target.relative_to(root.resolve())
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Ruta relativa inválida.")
-    if not target.is_file():
-        raise HTTPException(status_code=404, detail=f"Asset no encontrado: {rel}")
-    return target
+    roots = _assets_roots()
+    if not roots:
+        raise HTTPException(status_code=404, detail="MATLAB_ROOT no configurado; assets locales deshabilitados.")
+    for root in roots:
+        target = (root / rel).resolve()
+        try:
+            target.relative_to(root.resolve())
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Ruta relativa inválida.")
+        if target.is_file():
+            return target
+    raise HTTPException(status_code=404, detail=f"Asset no encontrado: {rel}")
 
 
 @router.get("/matlab/{relpath:path}")

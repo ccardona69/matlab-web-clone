@@ -29,3 +29,5 @@ venv/
 /local-assets/
 /frontend/matlab-assets/
 /vendor/matlab/
+# Mirror local del frontend (lo genera scripts/mirror_matlab_webgui.py; NUNCA al repo)
+/ml-mirror/

@@ -24,18 +24,25 @@ def test_e1_index_describes_launch_urls() -> None:
     assert body["channel_map"] == "/api/e1/channels"
 
 
-def test_mw_requires_matlab_root(monkeypatch) -> None:
+def _no_local_roots(monkeypatch) -> None:
+    """Sin instalación NI mirror local: el shell real no está disponible."""
     monkeypatch.delenv("MATLAB_ROOT", raising=False)
+    monkeypatch.delenv("MATLAB_MIRROR", raising=False)
+    monkeypatch.setattr("backend.local_assets._default_mirror_root", lambda: None)
+
+
+def test_mw_requires_matlab_root(monkeypatch) -> None:
+    _no_local_roots(monkeypatch)
     with TestClient(app) as client:
         response = client.get("/mw/")
     assert response.status_code == 404
 
 
 def test_install_asset_prefixes_require_matlab_root(monkeypatch) -> None:
-    # /ui/* y /toolbox/matlab/rich_text_component/* también se sirven en runtime
-    # desde MATLAB_ROOT (registry de iconos del toolstrip + chunk del Command
-    # Window); sin instalación no hay shell real → 404.
-    monkeypatch.delenv("MATLAB_ROOT", raising=False)
+    # /ui/* y /toolbox/matlab/{rich_text_component,rtc_addons}/* se sirven en
+    # runtime desde MATLAB_ROOT o desde el mirror local (ml-mirror); sin
+    # ninguna de las dos raíces no hay shell real → 404.
+    _no_local_roots(monkeypatch)
     with TestClient(app) as client:
         assert client.get("/ui/icons/registry.json").status_code == 404
         assert (
