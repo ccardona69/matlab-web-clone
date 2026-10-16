@@ -17,6 +17,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from backend.local_assets import console_router as mvm_console_router
+from backend.local_assets import router as local_assets_router
 from backend.matlab.display import value_summary
 from backend.matlab.values import MCell, MString, MStruct, as2d, is_char
 from backend.mvm_engine import MatlabVirtualMachine, format_matlab_value
@@ -38,6 +40,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(local_assets_router)
+app.include_router(mvm_console_router)
 
 mvm = MatlabVirtualMachine()
 

@@ -10,6 +10,9 @@ const state = {
   activeFigureNumber: null,
   history: [],
   historyCursor: -1,
+  builtinNames: [],
+  workspaceNames: [],
+  busy: false,
 };
 
 const COPILOT_TEMPLATES = [
@@ -54,33 +57,98 @@ async function apiPost(path, body) {
   return res.json();
 }
 
-function appendConsoleEntry(code, output, error, elapsedMs) {
-  const container = document.getElementById("command-output");
-  const entry = document.createElement("div");
-  entry.className = "cmd-entry";
+/* ---------- Command Window: render con paridad MATLAB R2026b ----------
+   Colores reales extraídos del webgui de R2026b (index-css.css + bundle.361.js):
+   prompt ">> " cobalt600 #0E00FF · salida gray900 #212121 · error #E11B14
+   (--mw-color-matlabErrors red550) · warning #B36205 (--mw-color-matlabWarning
+   honey550) · hyperlinks azul. */
 
+const CW_SEGMENT_CLASS = {
+  out: "cw-out",
+  warn: "cw-warn",
+  err: "cw-err",
+};
+
+const CW_LINK_RE = /> In ([A-Za-z_][\w.]*) \(line (\d+)\)/g;
+
+function cwOutput() {
+  return document.getElementById("command-output");
+}
+
+function cwPromptline() {
+  return document.getElementById("cw-promptline");
+}
+
+function cwInput() {
+  return document.getElementById("command-input");
+}
+
+function cwInsertBeforePrompt(el) {
+  const out = cwOutput();
+  out.insertBefore(el, cwPromptline());
+  out.scrollTop = out.scrollHeight;
+}
+
+function cwWarnSpan(text) {
+  /* "> In <func> (line <n>)" se renderiza como hyperlink azul, como en MATLAB */
+  const span = document.createElement("span");
+  let last = 0;
+  for (const m of text.matchAll(CW_LINK_RE)) {
+    span.appendChild(document.createTextNode(text.slice(last, m.index)));
+    const link = document.createElement("span");
+    link.className = "cw-link";
+    link.textContent = m[0];
+    span.appendChild(link);
+    last = m.index + m[0].length;
+  }
+  span.appendChild(document.createTextNode(text.slice(last)));
+  return span;
+}
+
+function appendConsoleEntry(code, res) {
   const echo = document.createElement("div");
-  echo.className = "cmd-input-echo";
-  echo.textContent = `>> ${code}`;
-  entry.appendChild(echo);
+  echo.className = "cw-entry cw-echo-line";
+  const mark = document.createElement("span");
+  mark.className = "cw-promptmark";
+  mark.textContent = ">> ";
+  const cmd = document.createElement("span");
+  cmd.className = "cw-echo-text";
+  cmd.textContent = code;
+  echo.append(mark, cmd);
+  cwInsertBeforePrompt(echo);
 
-  if (output) {
-    const outEl = document.createElement("div");
-    outEl.className = "cmd-result-text";
-    outEl.textContent = output;
-    entry.appendChild(outEl);
+  let segments = (res && res.segments) || [];
+  if (!segments.length && res) {
+    if (res.output) segments.push({ kind: "out", text: res.output });
+    if (res.error) segments.push({ kind: "err", text: res.error });
   }
-  if (error) {
-    const errEl = document.createElement("div");
-    errEl.className = "cmd-error-text";
-    errEl.textContent = error;
-    entry.appendChild(errEl);
+  for (const seg of segments) {
+    if (!seg.text) continue;
+    const div = document.createElement("div");
+    div.className = `cw-entry ${CW_SEGMENT_CLASS[seg.kind] || "cw-out"}`;
+    if (seg.kind === "warn") {
+      div.appendChild(cwWarnSpan(seg.text));
+    } else {
+      div.textContent = seg.text;
+    }
+    cwInsertBeforePrompt(div);
   }
-  container.appendChild(entry);
-  container.scrollTop = container.scrollHeight;
 
-  if (elapsedMs !== undefined) {
-    document.getElementById("last-exec-latency").textContent = `MVM eval: ${elapsedMs} ms`;
+  /* clc: la Command Window queda vacía, incluido el propio eco de `clc` */
+  const events = (res && res.events) || [];
+  if (events.some((ev) => ev && ev.type === "clc")) {
+    cwOutput().querySelectorAll(".cw-entry").forEach((n) => n.remove());
+  }
+}
+
+function setBusy(busy) {
+  state.busy = busy;
+  const promptline = cwPromptline();
+  const input = cwInput();
+  if (promptline) promptline.classList.toggle("busy", busy);
+  if (input) {
+    input.disabled = busy;
+    if (!busy) input.focus();
   }
 }
 
@@ -165,18 +233,33 @@ function renderFigures(figures) {
 }
 
 async function evaluateCode(code, echoLabel = null) {
-  if (!code || !code.trim()) return;
-  state.history.push(code.trim());
+  if (!code || !code.trim() || state.busy) return;
+  const trimmed = code.trim();
+  state.history.push(trimmed);
   state.historyCursor = state.history.length;
   renderCommandHistory();
-  setStatus("Evaluando…");
-  const res = await apiPost("/api/mvm/eval", { code });
-  appendConsoleEntry(echoLabel || code.trim(), res.output, res.error, res.elapsed_ms);
-  renderWorkspace(res.workspace || []);
-  renderFigures(res.figures || []);
-  setStatus(res.error ? "Error" : "Ready");
-  if (res.workspace && res.workspace.length > 0) {
-    inspectVariable(res.workspace[0].name);
+  setBusy(true);
+  setStatus("Busy");
+  try {
+    const res = await apiPost("/api/mvm/eval", { code });
+    appendConsoleEntry(echoLabel || trimmed, res);
+    if (res.elapsed_ms !== undefined) {
+      document.getElementById("last-exec-latency").textContent = `MVM eval: ${res.elapsed_ms} ms`;
+    }
+    renderWorkspace(res.workspace || []);
+    state.workspaceNames = (res.workspace || []).map((v) => v.name);
+    renderFigures(res.figures || []);
+    setStatus(res.error ? "Error" : "Ready");
+    if (res.workspace && res.workspace.length > 0) {
+      inspectVariable(res.workspace[0].name);
+    }
+  } catch (err) {
+    appendConsoleEntry(echoLabel || trimmed, {
+      segments: [{ kind: "err", text: `${err.message || err}\n` }],
+    });
+    setStatus("Error");
+  } finally {
+    setBusy(false);
   }
 }
 
@@ -454,7 +537,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const content = document.getElementById("matlab-editor").value;
     await apiPost("/api/scripts", { filename, content });
     await loadScripts();
-    appendConsoleEntry(`save('${filename}')`, `Archivo '${filename}' guardado correctamente.`, null, 1.0);
+    appendConsoleEntry(`save('${filename}')`, {
+      segments: [{ kind: "out", text: `Archivo '${filename}' guardado correctamente.\n` }],
+    });
   });
 
   // Nuevo Script
@@ -480,34 +565,146 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderFigures([]);
     document.getElementById("variable-inspector").innerHTML =
       `<p class="empty-hint">Workspace reiniciado.</p>`;
-    appendConsoleEntry("clear; close all", "Workspace y figuras limpiados.", null, 0.5);
+    appendConsoleEntry("clear; close all", {
+      segments: [{ kind: "out", text: "Workspace y figuras limpiados.\n" }],
+    });
   });
 
-  // clc
-  document.getElementById("btn-clc").addEventListener("click", () => {
-    document.getElementById("command-output").innerHTML = "";
+  // clc: mismo camino que teclear `clc` en el prompt (el motor emite el evento)
+  document.getElementById("btn-clc").addEventListener("click", async () => {
+    await evaluateCode("clc");
   });
 
-  // Consola interactiva
+  // ---- Consola interactiva: prompt inline estilo MATLAB ----
   const cmdInput = document.getElementById("command-input");
-  document.getElementById("command-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const code = cmdInput.value;
-    cmdInput.value = "";
-    await evaluateCode(code);
-  });
+  const cmdOutput = document.getElementById("command-output");
+  const completionPopup = document.getElementById("cw-completion-popup");
 
-  cmdInput.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowUp" && state.history.length > 0) {
+  // Clic en la superficie enfoca el prompt (como en MATLAB), salvo selección de texto
+  cmdOutput.addEventListener("mouseup", () => {
+    if (!window.getSelection().toString() && !state.busy) cmdInput.focus();
+  });
+  cmdInput.focus();
+
+  const completion = { open: false, items: [], index: 0, tokenStart: 0 };
+
+  function closeCompletion() {
+    completion.open = false;
+    completionPopup.hidden = true;
+  }
+
+  function currentToken() {
+    const upto = cmdInput.value.slice(0, cmdInput.selectionStart);
+    const m = upto.match(/[A-Za-z_][A-Za-z0-9_]*$/);
+    return m ? { text: m[0], start: upto.length - m[0].length } : null;
+  }
+
+  function applyCompletion(name, tokenStart) {
+    const upto = cmdInput.value.slice(0, cmdInput.selectionStart);
+    const rest = cmdInput.value.slice(cmdInput.selectionStart);
+    const before = upto.slice(0, tokenStart);
+    cmdInput.value = before + name + rest;
+    cmdInput.selectionStart = cmdInput.selectionEnd = (before + name).length;
+    closeCompletion();
+  }
+
+  function openCompletion(items, tokenStart) {
+    completion.items = items;
+    completion.index = 0;
+    completion.tokenStart = tokenStart;
+    completionPopup.innerHTML = "";
+    items.slice(0, 12).forEach((name, i) => {
+      const item = document.createElement("div");
+      item.className = "cw-completion-item" + (i === 0 ? " selected" : "");
+      item.textContent = name;
+      item.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        applyCompletion(name, tokenStart);
+      });
+      completionPopup.appendChild(item);
+    });
+    if (items.length > 12) {
+      const more = document.createElement("div");
+      more.className = "cw-completion-more";
+      more.textContent = `… ${items.length - 12} más`;
+      completionPopup.appendChild(more);
+    }
+    completionPopup.hidden = false;
+    completion.open = true;
+  }
+
+  function moveCompletion(delta) {
+    const shown = Math.min(completion.items.length, 12);
+    completion.index = (completion.index + delta + shown) % shown;
+    completionPopup.querySelectorAll(".cw-completion-item").forEach((el, i) => {
+      el.classList.toggle("selected", i === completion.index);
+    });
+  }
+
+  function tabComplete() {
+    const token = currentToken();
+    if (!token) return;
+    const names = [...new Set([...state.workspaceNames, ...state.builtinNames])];
+    const matches = names.filter((n) => n.startsWith(token.text) && n !== token.text);
+    if (matches.length === 1) {
+      applyCompletion(matches[0], token.start);
+      return;
+    }
+    if (matches.length > 1) {
+      const lcp = matches.reduce((a, b) => {
+        let i = 0;
+        while (i < a.length && i < b.length && a[i] === b[i]) i++;
+        return a.slice(0, i);
+      });
+      if (lcp.length > token.text.length) {
+        applyCompletion(lcp, token.start);
+      } else {
+        openCompletion(matches, token.start);
+      }
+    }
+  }
+
+  cmdInput.addEventListener("keydown", async (e) => {
+    if (completion.open) {
+      if (e.key === "ArrowDown") { e.preventDefault(); moveCompletion(1); return; }
+      if (e.key === "ArrowUp") { e.preventDefault(); moveCompletion(-1); return; }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        applyCompletion(completion.items[completion.index], completion.tokenStart);
+        return;
+      }
+      if (e.key === "Escape") { e.preventDefault(); closeCompletion(); return; }
+      closeCompletion();
+    }
+    if (e.key === "Tab") {
+      e.preventDefault();
+      tabComplete();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (state.busy) return;
+      const code = cmdInput.value;
+      cmdInput.value = "";
+      await evaluateCode(code);
+    } else if (e.key === "ArrowUp" && state.history.length > 0) {
       e.preventDefault();
       state.historyCursor = Math.max(0, state.historyCursor - 1);
       cmdInput.value = state.history[state.historyCursor] || "";
+      cmdInput.setSelectionRange(cmdInput.value.length, cmdInput.value.length);
     } else if (e.key === "ArrowDown" && state.history.length > 0) {
       e.preventDefault();
       state.historyCursor = Math.min(state.history.length, state.historyCursor + 1);
       cmdInput.value = state.history[state.historyCursor] || "";
+      cmdInput.setSelectionRange(cmdInput.value.length, cmdInput.value.length);
     }
   });
+
+  // Lista de nombres completables (builtins del motor; opt-in, sin fallo si no existe)
+  try {
+    const c = await apiGet("/api/mvm/completions");
+    state.builtinNames = c.names || [];
+  } catch (err) {
+    state.builtinNames = [];
+  }
 
   // Simulink PID
   document.getElementById("btn-run-simulink").addEventListener("click", async () => {
