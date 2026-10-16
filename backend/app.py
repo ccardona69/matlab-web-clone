@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 
 from backend.e1_messageservice import router as e1_messageservice_router
 from backend.e1_messageservice import try_handle_container as e1_try_handle_container
+from backend.e1_probe import _record as e1_record
 from backend.e1_probe import _record_channel as e1_record_channel
 from backend.e1_probe import router as e1_probe_router
 from backend.local_assets import console_router as mvm_console_router
@@ -56,10 +57,47 @@ _bus_websockets: set[WebSocket] = set()
 
 def _publish_bus_event(event: dict[str, Any], client_id: str | None = None) -> None:
     wire_event = {**event, "channel": "/matlab" + event["channel"]}
+    queued = 0
     for cid, state in _bus_clients.items():
         if client_id is None or cid == client_id:
             if wire_event["channel"] in state["subscriptions"]:
                 state["queue"].append(wire_event)
+                queued += 1
+    # Observabilidad en /api/e1/request-log: status 204 = entrega caída por
+    # falta de suscripción (útil para depurar la cadena MVM en vivo).
+    e1_record("push", wire_event["channel"], payload={"queued": queued}, status=200 if queued else 204)
+
+
+_PROMPT_EVENT = "mlutil::prompt::PromptEvent"
+
+
+def _prompt_idle_event(prefix: str, request_id: str, group: str) -> dict[str, Any]:
+    """PromptEvent idle (requester BASE_PROMPT), payload copiado de la captura real.
+
+    El Command Window sale de "Initializing..." cuando el
+    ExecutionStateServiceSingleton recibe este evento por su suscripción y
+    confirma el canal hasinitialized (ExecutionStateServiceInitializer).
+    `prefix` es el prefijo de sesión de la MVM sin el /matlab del cable,
+    p.ej. "/mvm/user-mvm".
+    """
+    return {
+        "channel": prefix + "/event/fireEvent",
+        "data": {
+            "eventData": {
+                "filterTags": [
+                    _PROMPT_EVENT,
+                    "mlutil::prompt::IdleEvent",
+                    "foundation::msg_svc::eventmgr::BaseEvent",
+                    f"{_PROMPT_EVENT}||{group}",
+                ],
+                "groupName": group,
+                "isIdle": True,
+                "requester": "BASE_PROMPT",
+                "wasCreatedInProcess": False,
+            },
+            "requestID": request_id,
+        },
+    }
 
 
 def _command_result(command: str, request_id: str | None = None, prefix: str = "/mvm/user-mvm") -> dict[str, Any]:
@@ -202,6 +240,38 @@ def _bayeux_handle(message: dict[str, Any]) -> list[dict[str, Any]]:
         response_channel = channel[:-len("/request")] + "/response"
         response = {"requestID": data.get("requestID"), "apiVersion": "v7_0", "channelPrefix": "/mvm/user-mvm"}
         _publish_bus_event({"channel": response_channel, "data": response})
+        return [{**ack, "clientId": client_id}]
+    if channel.endswith("/subscribeEvent/request"):
+        # Suscripción a eventos de la MVM (p.ej. mlutil::prompt::PromptEvent).
+        # Evidencia real: subscribeEvent/response {requestID} + un PromptEvent
+        # idle por cada suscripción, que es lo que pasa el Command Window de
+        # "Initializing..." a "ready" (ExecutionStateServiceSingleton).
+        prefix = channel[: -len("/subscribeEvent/request")]
+        request_id = data.get("requestID")
+        event_name = data.get("eventName")
+        if isinstance(request_id, str) and request_id:
+            _publish_bus_event(
+                {"channel": prefix + "/subscribeEvent/response", "data": {"requestID": request_id}},
+                client_id,
+            )
+            if isinstance(event_name, str) and event_name.startswith(_PROMPT_EVENT):
+                group = event_name.split("||", 1)[1] if "||" in event_name else _PROMPT_EVENT
+                _publish_bus_event(_prompt_idle_event(prefix, request_id, group), client_id)
+        return [{**ack, "clientId": client_id}]
+    if channel == "/editor/event-notification-request":
+        # El arranque del executionstateservice pide aviso de inicialización y
+        # espera el push {dataMap:{isInitialized:true}} con su requesterId.
+        if data.get("messageChannel") == "/executionstateservice/hasinitialized":
+            _publish_bus_event(
+                {
+                    "channel": "/executionstateservice/hasinitialized",
+                    "data": {
+                        "dataMap": {"isInitialized": True},
+                        "requesterId": data.get("requesterId"),
+                    },
+                },
+                client_id,
+            )
         return [{**ack, "clientId": client_id}]
     # Canal no implementado (servicios del escritorio real): se acepta en
     # silencio, igual que el probe, para no provocar reintentos ni tormentas de

@@ -241,3 +241,136 @@ def test_unknown_bayeux_channel_publish_is_accepted_silently() -> None:
         ).json()[0]
     assert reply["successful"] is True
     assert "error" not in reply
+
+
+def _bayeux_handshake(client: TestClient) -> str:
+    reply = client.post(
+        "/messageservice/async", json=[{"channel": "/meta/handshake", "version": "1.0"}]
+    ).json()[0]
+    assert reply["successful"] is True
+    return reply["clientId"]
+
+
+def _bayeux_subscribe(client: TestClient, client_id: str, *channels: str) -> None:
+    for subscription in channels:
+        client.post(
+            "/messageservice/async",
+            json=[
+                {
+                    "channel": "/meta/subscribe",
+                    "clientId": client_id,
+                    "subscription": subscription,
+                }
+            ],
+        )
+
+
+def _bayeux_connect(client: TestClient, client_id: str) -> list[dict]:
+    return client.post(
+        "/messageservice/async", json=[{"channel": "/meta/connect", "clientId": client_id}]
+    ).json()
+
+
+def test_prompt_event_subscription_fires_idle_event() -> None:
+    """subscribeEvent/request → response + PromptEvent idle en el siguiente poll.
+
+    Cadena copiada de la captura real del connector (real-boot-jsd): sin este
+    evento el escritorio se queda en "Initializing..." para siempre, porque el
+    ExecutionStateServiceSingleton solo pasa a "ready" con un PromptEvent
+    idle (requester BASE_PROMPT).
+    """
+    with TestClient(app) as client:
+        cid = _bayeux_handshake(client)
+        _bayeux_subscribe(
+            client,
+            cid,
+            "/matlab/mvm/user-mvm/subscribeEvent/response",
+            "/matlab/mvm/user-mvm/event/fireEvent",
+        )
+        ack = client.post(
+            "/messageservice/async",
+            json=[
+                {
+                    "channel": "/matlab/mvm/user-mvm/subscribeEvent/request",
+                    "clientId": cid,
+                    "data": {"eventName": "mlutil::prompt::PromptEvent", "requestID": "P1"},
+                }
+            ],
+        ).json()[0]
+        assert ack["successful"] is True
+
+        events = _bayeux_connect(client, cid)
+    channels = [m.get("channel") for m in events]
+    assert "/matlab/mvm/user-mvm/subscribeEvent/response" in channels
+    assert "/matlab/mvm/user-mvm/event/fireEvent" in channels
+    subscribe_reply = next(
+        m for m in events if m["channel"].endswith("/subscribeEvent/response")
+    )
+    assert subscribe_reply["data"]["requestID"] == "P1"
+    fire = next(m for m in events if m["channel"].endswith("/event/fireEvent"))
+    assert fire["data"]["requestID"] == "P1"
+    assert fire["data"]["eventData"]["isIdle"] is True
+    assert fire["data"]["eventData"]["requester"] == "BASE_PROMPT"
+    assert fire["data"]["eventData"]["groupName"] == "mlutil::prompt::PromptEvent"
+
+
+def test_grouped_prompt_subscription_gets_user_group_event() -> None:
+    # El shell también se suscribe con la forma manglada "Evento||Grupo";
+    # la entrega lleva ese grupo en groupName y en el último filterTag.
+    with TestClient(app) as client:
+        cid = _bayeux_handshake(client)
+        _bayeux_subscribe(
+            client,
+            cid,
+            "/matlab/mvm/user-mvm/subscribeEvent/response",
+            "/matlab/mvm/user-mvm/event/fireEvent",
+        )
+        client.post(
+            "/messageservice/async",
+            json=[
+                {
+                    "channel": "/matlab/mvm/user-mvm/subscribeEvent/request",
+                    "clientId": cid,
+                    "data": {
+                        "eventName": "mlutil::prompt::PromptEvent||UserGroup",
+                        "requestID": "P2",
+                    },
+                }
+            ],
+        )
+        events = _bayeux_connect(client, cid)
+    fire = next(m for m in events if m["channel"].endswith("/event/fireEvent"))
+    assert fire["data"]["requestID"] == "P2"
+    assert fire["data"]["eventData"]["groupName"] == "UserGroup"
+    assert (
+        "mlutil::prompt::PromptEvent||UserGroup"
+        in fire["data"]["eventData"]["filterTags"]
+    )
+
+
+def test_hasinitialized_notification_pushes_confirmation() -> None:
+    # event-notification-request (messageChannel hasinitialized) → push con
+    # dataMap.isInitialized=true y el requesterId del peticionario.
+    with TestClient(app) as client:
+        cid = _bayeux_handshake(client)
+        _bayeux_subscribe(client, cid, "/matlab/executionstateservice/hasinitialized")
+        ack = client.post(
+            "/messageservice/async",
+            json=[
+                {
+                    "channel": "/matlab/editor/event-notification-request",
+                    "clientId": cid,
+                    "data": {
+                        "messageChannel": "/executionstateservice/hasinitialized",
+                        "requesterId": "ExecutionStateServiceInitializerTEST",
+                    },
+                }
+            ],
+        ).json()[0]
+        assert ack["successful"] is True
+        events = _bayeux_connect(client, cid)
+    init = next(
+        m for m in events if m.get("channel") == "/matlab/executionstateservice/hasinitialized"
+    )
+    assert init["data"]["dataMap"] == {"isInitialized": True}
+    assert init["data"]["requesterId"] == "ExecutionStateServiceInitializerTEST"

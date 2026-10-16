@@ -128,3 +128,49 @@ Claves verificadas:
 - Feature flags (`CombinedEditor`, `LiveEditorPagination`): timeout → default `false`.
 - `shortcuts` (`request/add/global` ×82) y `settingsChannel/Request` ×143: protocolos
   petición–respuesta por Bayeux sin respuesta (reintentan); candidatos a stub.
+
+---
+
+## Iteración 3 — causa raíz del «Initializing…» eterno: cadena PromptEvent → hasinitialized (2026-10-16)
+
+Síntoma: con todo el backend E1 respondiendo (`WORKER_READY` en consola), la barra de estado
+quedaba en «Initializing...» para siempre y el prompt `>>` nunca aparecía. El estancamiento
+era de **protocolo**, no del proceso ni del engine.
+
+Diagnóstico (request-log + DOM + captura real del connector con MATLAB vivo):
+
+- La barra de estado publica el estado del Command Window
+  (`ExecutionStateServiceSingleton._handleIdleBusyEvent`), que solo pasa a READY cuando
+  recibe un `mlutil::prompt::PromptEvent` con `isIdle:true` por su suscripción MVM y luego
+  el `ExecutionStateServiceInitializer` confirma `hasinitialized`.
+- Los estados `uiLifecycle: WORKER_*` se emiten antes y no levantan la UI: la transición
+  visual depende de esa cadena de eventos del bus.
+
+Cadena implementada en `backend/app.py` (`_bayeux_handle`); payloads copiados de la captura
+real del connector (`ml-mirror/_captures/real-boot-jsd-1.jsonl`):
+
+1. Cliente publica `<prefix>/subscribeEvent/request` `{eventName, requestID}` → respuesta
+   `<prefix>/subscribeEvent/response` `{requestID}` y, si el nombre es
+   `mlutil::prompt::PromptEvent` (o su forma manglada `…||Grupo`), un
+   `<prefix>/event/fireEvent` con `eventData: {filterTags[4], groupName, isIdle:true,
+   requester:"BASE_PROMPT", wasCreatedInProcess:false}`.
+2. Cliente publica `/matlab/editor/event-notification-request`
+   `{messageChannel:"/executionstateservice/hasinitialized", requesterId}` → push
+   `/matlab/executionstateservice/hasinitialized`
+   `{dataMap:{isInitialized:true}, requesterId}`.
+3. Las entregas se encolan por suscripción `/meta/subscribe` y viajan en la respuesta del
+   siguiente `/meta/connect` (advice.interval=3000). El prefijo de canal se deriva del
+   canal entrante (`/mvm/user-mvm` en el flujo nologin; `/mvm/<id>` en jsd).
+
+Resultado (boot headless, DOM 161 KB): `Initializing...` → **0 apariciones**, barra
+`mwTextLine">Ready<`, prompt `>>` presente. Log del bus: 16 `subscribeEvent/response` +
+8 `fireEvent` + 2 `hasinitialized`, todos `queued=1`.
+
+Contrato cubierto por tests en `tests/test_e1_messageservice.py`:
+`test_prompt_event_subscription_fires_idle_event`,
+`test_grouped_prompt_subscription_gets_user_group_event`,
+`test_hasinitialized_notification_pushes_confirmation`.
+
+Capturador del diálogo real reutilizable: `scripts/acceptance/capture_real_boot.py`
+(proxy TLS hacia `https://127.0.0.1:31515` con MATLAB vivo; graba JSONL en
+`ml-mirror/_captures/`).
