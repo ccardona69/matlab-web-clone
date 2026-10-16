@@ -7,11 +7,12 @@ gestión de scripts .m, Workspace, Simulink Lite (bloques dinámicos) y el Ledge
 from __future__ import annotations
 
 import hashlib
+import uuid
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -45,10 +46,46 @@ app.include_router(local_assets_router)
 app.include_router(mvm_console_router)
 
 mvm = MatlabVirtualMachine()
+_bus_clients: dict[str, dict[str, Any]] = {}
+_bus_websockets: set[WebSocket] = set()
+
+
+def _publish_bus_event(event: dict[str, Any], client_id: str | None = None) -> None:
+    wire_event = {**event, "channel": "/matlab" + event["channel"]}
+    for cid, state in _bus_clients.items():
+        if client_id is None or cid == client_id:
+            if wire_event["channel"] in state["subscriptions"]:
+                state["queue"].append(wire_event)
+
+
+def _command_result(command: str, request_id: str | None = None, prefix: str = "/mvm/user-mvm") -> dict[str, Any]:
+    rid = request_id or str(uuid.uuid4())
+    result = mvm.execute(command)
+    for segment in result.get("segments", []):
+        kind = segment.get("kind")
+        if kind in ("out", "warn", "err") and segment.get("text"):
+            _publish_bus_event({
+                "channel": prefix + "/text/" + ("error" if kind == "err" else "output"),
+                "data": {"requestID": rid, "text": segment["text"]},
+            })
+    response = {"requestID": rid, "result": result}
+    _publish_bus_event({"channel": prefix + "/eval/response", "data": response})
+    return response
 
 
 class EvalRequest(BaseModel):
     code: str = Field(..., description="Código o comando MATLAB (.m) a evaluar en la MVM")
+
+
+class MvmAttachRequest(BaseModel):
+    mvmID: str = "user-mvm"
+    supportedApiVersions: list[str] = Field(default_factory=lambda: ["v7_0"])
+
+
+class MvmCommandRequest(BaseModel):
+    command: str
+    requestID: str | None = None
+    isUserEval: bool | None = True
 
 
 class SaveScriptRequest(BaseModel):
@@ -68,6 +105,110 @@ class SimulinkRunRequest(BaseModel):
 
 class ArtifactInspectRequest(BaseModel):
     relative_path: str = Field(..., description="Ruta relativa dentro de C:\\Program Files\\MATLAB\\R2026b")
+
+
+@app.post("/api/mvm/attach")
+def attach_mvm(req: MvmAttachRequest) -> dict[str, Any]:
+    if req.mvmID != "user-mvm":
+        raise HTTPException(status_code=400, detail="Solo se admite mvmID=user-mvm.")
+    version = next((v for v in req.supportedApiVersions if v == "v7_0"), None)
+    if version is None:
+        raise HTTPException(status_code=400, detail="API MVM no compatible.")
+    return {"apiVersion": version, "channelPrefix": "/mvm/user-mvm"}
+
+
+@app.post("/api/mvm/command")
+def execute_bus_command(req: MvmCommandRequest) -> dict[str, Any]:
+    return _command_result(req.command, req.requestID)
+
+
+@app.websocket("/ws/mvm")
+async def mvm_websocket(socket: WebSocket) -> None:
+    await socket.accept()
+    _bus_websockets.add(socket)
+    await socket.send_json({"channel": "status", "data": get_mvm_status()})
+    try:
+        while True:
+            message = await socket.receive_json()
+            if message.get("type") == "command" or "command" in message:
+                response = _command_result(message.get("command", ""), message.get("requestID"))
+                for segment in response["result"].get("segments", []):
+                    kind = segment.get("kind")
+                    if kind in ("out", "warn", "err") and segment.get("text"):
+                        await socket.send_json({
+                            "channel": "/mvm/user-mvm/text/" + ("error" if kind == "err" else "output"),
+                            "data": {"requestID": response["requestID"], "text": segment["text"]},
+                        })
+                await socket.send_json({"channel": "commandResponse", "data": response})
+    except WebSocketDisconnect:
+        pass
+    finally:
+        _bus_websockets.discard(socket)
+
+
+def _bayeux_handle(message: dict[str, Any]) -> list[dict[str, Any]]:
+    wire_channel = message.get("channel", "")
+    channel = wire_channel[len("/matlab"):] if wire_channel.startswith("/matlab/") else wire_channel
+    mid = message.get("id")
+    ack: dict[str, Any] = {"channel": wire_channel, "id": mid, "successful": True}
+    if channel == "/meta/handshake":
+        client_id = str(uuid.uuid4())
+        _bus_clients[client_id] = {"subscriptions": set(), "queue": []}
+        return [{**ack, "clientId": client_id, "version": "1.0", "minimumVersion": "1.0", "supportedConnectionTypes": ["long-polling", "websocket"], "advice": {"reconnect": "retry", "interval": 0, "timeout": 0}}]
+    client_id = message.get("clientId")
+    state = _bus_clients.get(client_id)
+    if channel == "/meta/connect":
+        if state is None:
+            return [{**ack, "successful": False, "error": "unknown clientId"}]
+        notifications = state["queue"][:]
+        state["queue"].clear()
+        return [{**ack, "clientId": client_id}] + notifications
+    if channel in ("/meta/subscribe", "/meta/unsubscribe"):
+        if state is None:
+            return [{**ack, "successful": False, "error": "unknown clientId"}]
+        subscription = message.get("subscription")
+        if not isinstance(subscription, str):
+            return [{**ack, "successful": False, "error": "subscription must be a channel"}]
+        if channel == "/meta/subscribe":
+            state["subscriptions"].add(subscription)
+        else:
+            state["subscriptions"].discard(subscription)
+        return [{**ack, "clientId": client_id, "subscription": subscription}]
+    if channel == "/meta/disconnect":
+        _bus_clients.pop(client_id, None)
+        return [{**ack, "clientId": client_id}]
+    if not channel or state is None:
+        return [{**ack, "successful": False, "error": "unknown clientId or channel"}]
+
+    data = message.get("data") or {}
+    if channel == "/mvm/attach/request":
+        if data.get("mvmID") != "user-mvm" or "v7_0" not in data.get("supportedApiVersions", []):
+            return [{**ack, "successful": False, "error": "unsupported MVM attach"}]
+        response = {"requestID": data.get("requestID"), "apiVersion": "v7_0", "channelPrefix": "/mvm/user-mvm"}
+        _publish_bus_event({"channel": "/mvm/attach/response", "data": response})
+        return [{**ack, "clientId": client_id}]
+    if channel.endswith("/eval/request") and isinstance(data.get("command"), str):
+        prefix = channel[:-len("/eval/request")]
+        _command_result(data["command"], data.get("requestID"), prefix)
+        return [{**ack, "clientId": client_id}]
+    if channel.endswith("/attach/request"):
+        response_channel = channel[:-len("/request")] + "/response"
+        response = {"requestID": data.get("requestID"), "apiVersion": "v7_0", "channelPrefix": "/mvm/user-mvm"}
+        _publish_bus_event({"channel": response_channel, "data": response})
+        return [{**ack, "clientId": client_id}]
+    return [{**ack, "successful": False, "error": "unsupported channel"}]
+
+
+@app.post("/matlab/messageservice/async")
+@app.post("/cometd")
+def cometd_stub(messages: list[dict[str, Any]] | dict[str, Any]) -> list[dict[str, Any]]:
+    """Bayeux subset: handshake/connect/subscribe/unsubscribe and MVM attach/eval publish."""
+    batch = messages if isinstance(messages, list) else [messages]
+    responses: list[dict[str, Any]] = []
+    for message in batch:
+        if isinstance(message, dict):
+            responses.extend(_bayeux_handle(message))
+    return responses
 
 
 @app.get("/api/mvm/status")
