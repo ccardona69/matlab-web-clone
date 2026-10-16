@@ -1,0 +1,130 @@
+<GOLDEN-CATALOGS-EXTRA MATLAB 26.2.0.3386108 (R2026b)>
+<PLATFORM PCWIN64>
+<CASE CT-61>
+<CODE polyfit(1:3, [1 2 3], 3)>
+[Warning: To fit a unique polynomial, reduce the degree to be less than the number of data points.] 
+[> In polyfit (line 73)
+In capture_catalogs_extra (line 34)] 
+
+ans =
+
+   -0.0909    0.5455         0    0.5455
+
+<WARN MATLAB:polyfit:PolyNotUnique | To fit a unique polynomial, reduce the degree to be less than the number of data points.>
+<END CT-61>
+<CASE CT-62>
+<CODE A = [1 2; 2 4]; A \ [1; 2]>
+[Warning: Matrix is singular to working precision.] 
+[> In capture_catalogs_extra (line 34)
+] 
+
+ans =
+
+   NaN
+   NaN
+
+<WARN MATLAB:singularMatrix | Matrix is singular to working precision.>
+<END CT-62>
+<CASE CT-63>
+<CODE inv(hilb(15))>
+[Warning: Matrix is close to singular or badly scaled. Results may be inaccurate. RCOND =  8.269626e-19.] 
+[> In capture_catalogs_extra (line 34)
+] 
+
+ans =
+
+   1.0e+16 *
+
+    0.0000   -0.0000    0.0000   -0.0000    0.0000   -0.0000    0.0000   -0.0000    0.0000   -0.0000    0.0000   -0.0000    0.0000   -0.0000    0.0000
+   -0.0000    0.0000   -0.0000    0.0000   -0.0000    0.0000   -0.0000    0.0000   -0.0000    0.0000   -0.0000    0.0000   -0.0000    0.0000   -0.0000
+    0.0000   -0.0000    0.0000   -0.0000    0.0000   -0.0000    0.0001   -0.0002    0.0003   -0.0002    0.0000    0.0000   -0.0000   -0.0000    0.0000
+   -0.0000    0.0000   -0.0000    0.0000   -0.0001    0.0007   -0.0021    0.0039   -0.0046    0.0028    0.0001   -0.0014    0.0009   -0.0002    0.0000
+    0.0000   -0.0000    0.0000   -0.0001    0.0012   -0.0057    0.0174   -0.0342    0.0411   -0.0242   -0.0055    0.0210   -0.0155    0.0052   -0.0007
+   -0.0000    0.0000   -0.0000    0.0007   -0.0057    0.0283   -0.0890    0.1792   -0.2183    0.1188    0.0654   -0.1679    0.1293   -0.0480    0.0072
+    0.0000   -0.0000    0.0001   -0.0021    0.0174   -0.0890    0.2876   -0.5892    0.7116   -0.3206   -0.4073    0.8181   -0.6327    0.2452   -0.0392
+   -0.0000    0.0000   -0.0002    0.0039   -0.0342    0.1792   -0.5892    1.2071   -1.3779    0.2999    1.5881   -2.5958    1.9625   -0.7697    0.1263
+    0.0000   -0.0000    0.0003   -0.0046    0.0411   -0.2183    0.7116   -1.3779    1.2078    0.9346   -4.1409    5.5376   -3.9780    1.5398   -0.2532
+   -0.0000    0.0000   -0.0002    0.0028   -0.0242    0.1188   -0.3206    0.2999    0.9346   -4.0436    7.4278   -8.0154    5.2437   -1.9327    0.3091
+    0.0000   -0.0000    0.0000    0.0001   -0.0055    0.0654   -0.4073    1.5881   -4.1409    7.4278   -9.2124    7.7714   -4.2594    1.3685   -0.1957
+   -0.0000    0.0000    0.0000   -0.0014    0.0210   -0.1679    0.8181   -2.5958    5.5376   -8.0154    7.7714   -4.8374    1.7517   -0.2837    0.0018
+    0.0000   -0.0000   -0.0000    0.0009   -0.0155    0.1293   -0.6327    1.9625   -3.9780    5.2437   -4.2594    1.7517    0.0305   -0.3238    0.0907
+   -0.0000    0.0000   -0.0000   -0.0002    0.0052   -0.0480    0.2452   -0.7697    1.5398   -1.9327    1.3685   -0.2837   -0.3238    0.2586   -0.0591
+    0.0000   -0.0000    0.0000    0.0000   -0.0007    0.0072   -0.0392    0.1263   -0.2532    0.3091   -0.1957    0.0018    0.0907   -0.0591    0.0128
+
+<WARN MATLAB:nearlySingularMatrix | Matrix is close to singular or badly scaled. Results may be inaccurate. RCOND =  8.269626e-19.>
+<END CT-63>
+<CASE CT-64>
+<CODE nchoosek(100, 50)>
+[Warning: Result may not be exact. Coefficient has a maximum relative error of 1.6875e-14, corresponding to absolute error 1702580784238102.] 
+[> In nchoosek (line 99)
+In capture_catalogs_extra (line 34)] 
+
+ans =
+
+   1.0089e+29
+
+<WARN MATLAB:nchoosek:LargeCoefficient | Result may not be exact. Coefficient has a maximum relative error of 1.6875e-14, corresponding to absolute error 1702580784238102.>
+<END CT-64>
+<CASE CT-65>
+<CODE rmpath('C:\no_such_dir_xyz')>
+[Warning: "C:\no_such_dir_xyz" not found in path.] 
+[> In rmpath (line 57)
+In capture_catalogs_extra (line 34)] 
+<WARN MATLAB:rmpath:DirNotFound | "C:\no_such_dir_xyz" not found in path.>
+<END CT-65>
+<CASE CT-66>
+<CODE table([1;2], [3;4], 'VariableNames', {'a','a'})>
+<ERROR MATLAB:table:DuplicateVarNames | Duplicate table variable name: 'a'.>
+<END CT-66>
+<CASE CT-67>
+<CODE 1:0:5>
+
+ans =
+
+  1×0 empty double row vector
+
+<END CT-67>
+<CASE CT-68>
+<CODE [1, 2+3i] < 2>
+
+ans =
+
+  1×2 logical array
+
+   1   0
+
+<END CT-68>
+<CASE CT-69>
+<CODE strmatch('a', {'a','b'})>
+
+ans =
+
+     1
+
+<END CT-69>
+<CASE CT-70>
+<CODE strread('1 2', '%d')>
+
+ans =
+
+     1
+     2
+
+<END CT-70>
+<CASE CT-71>
+<CODE ode45(@(t,y) y.^2, [0 10], 1)>
+[Warning: Failure at t=9.999858e-01.  Unable to meet integration tolerances without reducing the step size below the smallest value allowed
+(1.776357e-15) at time t.] 
+[> In ode45 (line 297)
+In capture_catalogs_extra (line 34)] 
+<WARN MATLAB:ode45:IntegrationTolNotMet | Failure at t=9.999858e-01.  Unable to meet integration tolerances without reducing the step size below the smallest value allowed (1.776357e-15) at time t.>
+<END CT-71>
+<CASE CT-72>
+<CODE quad(@(x) x.^2, 0, 1)>
+
+ans =
+
+    0.3333
+
+<END CT-72>
+<EOG>
