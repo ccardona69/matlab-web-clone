@@ -30,3 +30,11 @@
 - Captura lado a lado del shell real (renderizado en la máquina del usuario con su instalación) sin diferencias visibles frente a MATLAB.
 
 **Rama sugerida:** `ws/3-e1-webgui` (desde `main`).
+
+## Estado (2026-10-16)
+
+Primer arranque capturado (headless Edge): el shell real carga completo — `index-css.css`,
+`bundle.index-nologin.js`, `bundle.361.js`, `defaults.json`, assets Dojo — **sin errores de
+consola** y llega a `uiLifecycle: PAGE_LOAD`; se detiene esperando respuestas del protocolo
+(primer mensaje `CurrentUser`/`ClientType` capturado). Mapa saneado:
+`docs/acceptance/ui/e1-request-map.md`.
