@@ -1,5 +1,7 @@
 # WO-04 | WS-9 | Catálogos de paridad: errores, warnings y formatos
 
+> **Estado (2026-10-16):** captura cruda **COMPLETADA** por OpenCode — `scripts/acceptance/capture_catalogs.m` + `docs/acceptance/golden-catalogs.txt` (73 casos capturados del MATLAB real: ~60 errores/warnings + 13 formatos). Los dorados se normalizan tras capturar: se eliminan bytes de consola `0x08` y se convierte CP850→UTF-8 (el símbolo `×` de "1×0 empty" queda como UTF-8); el texto canónico es el de los marcadores `<ERROR>`/`<WARN>`. Hallazgo documentado: `ode45(...)` no auto-muestra su resultado bajo `eval` (CT-42 usa `disp` explícito). **Pendiente para Gemini:** estructurar `catalogs/errores-warnings.json` + `catalogs/formatos-numericos.md` desde la captura, ampliar cobertura donde falte (meta ≥40 errores, ≥15 warnings) y marcar determinismo de cada caso.
+
 - **Asignada a:** Gemini 3.8 Flash (soporte a WS-2)
 - **Evidencia:** `docs/acceptance/golden-output.txt` (capturado del MATLAB real) + `scripts/acceptance/capture_golden.m` (extensible)
 - **Objetivo:** construir los catálogos de paridad textual que W1/W2 usarán como prueba:

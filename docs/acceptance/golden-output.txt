@@ -112,9 +112,9 @@ ans =
 <END AC-15>
 <CASE AC-16>
 <CODE inv([1 2; 2 4])>
-[Warning: Matrix is singular to working precision.] 
-[> In capture_golden (line 43)
-] 
+[Warning: Matrix is singular to working precision.] 
+[> In capture_golden (line 43)
+] 
 
 ans =
 

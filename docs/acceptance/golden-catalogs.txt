@@ -1,0 +1,466 @@
+<GOLDEN-CATALOGS MATLAB 26.2.0.3386108 (R2026b)>
+<PLATFORM PCWIN64>
+<CASE CT-01>
+<CODE undefined_fn_xyz>
+<ERROR MATLAB:UndefinedFunction | Unrecognized function or variable 'undefined_fn_xyz'.>
+<END CT-01>
+<CASE CT-02>
+<CODE no_such_var_abc>
+<ERROR MATLAB:UndefinedFunction | Unrecognized function or variable 'no_such_var_abc'.>
+<END CT-02>
+<CASE CT-03>
+<CODE a = [1 2 3]; a(5)>
+<ERROR MATLAB:badsubscript | Index exceeds the number of array elements. Index must not exceed 3.>
+<END CT-03>
+<CASE CT-04>
+<CODE a = [1 2 3]; a(0)>
+<ERROR MATLAB:badsubscript | Array indices must be positive integers or logical values.>
+<END CT-04>
+<CASE CT-05>
+<CODE a = [1 2 3]; a('x')>
+<ERROR MATLAB:badsubscript | Index exceeds the number of array elements. Index must not exceed 3.>
+<END CT-05>
+<CASE CT-06>
+<CODE a = [1 2 3]; a(1.5)>
+<ERROR MATLAB:badsubscript | Array indices must be positive integers or logical values.>
+<END CT-06>
+<CASE CT-07>
+<CODE sin()>
+<ERROR MATLAB:minrhs | Not enough input arguments.>
+<END CT-07>
+<CASE CT-08>
+<CODE sin(1, 2, 3)>
+<ERROR MATLAB:maxrhs | Too many input arguments.>
+<END CT-08>
+<CASE CT-09>
+<CODE zeros()>
+
+ans =
+
+     0
+
+<END CT-09>
+<CASE CT-10>
+<CODE zeros(2.5)>
+<ERROR MATLAB:NonIntegerInput | Size inputs must be integers.>
+<END CT-10>
+<CASE CT-11>
+<CODE zeros(-1)>
+
+ans =
+
+     []
+
+<END CT-11>
+<CASE CT-12>
+<CODE [1 2] + [1 2 3]>
+<ERROR MATLAB:sizeDimensionsMustMatch | Arrays have incompatible sizes for this operation.>
+<END CT-12>
+<CASE CT-13>
+<CODE [1 2; 3 4] * [1 2 3]>
+<ERROR MATLAB:innerdim | Incorrect dimensions for matrix multiplication. Check that the number of columns in the first matrix matches the number of rows in the second matrix. To operate on each element of the matrix individually, use TIMES (.*) for elementwise multiplication.>
+<END CT-13>
+<CASE CT-14>
+<CODE [1 2] \ [1 2 3]>
+
+ans =
+
+         0         0         0
+    0.5000    1.0000    1.5000
+
+<END CT-14>
+<CASE CT-15>
+<CODE [1 2; 3]>
+<ERROR MATLAB:catenate:dimensionMismatch | Dimensions of arrays being concatenated are not consistent.>
+<END CT-15>
+<CASE CT-16>
+<CODE [1 2 3>
+<ERROR MATLAB:m_incomplete_statement | Error: The statement is incomplete or empty.>
+<END CT-16>
+<CASE CT-17>
+<CODE if true>
+<ERROR MATLAB:m_missing_end | Error: At least one END is missing. The statement beginning here does not have a matching end.>
+<END CT-17>
+<CASE CT-18>
+<CODE 1var = 3>
+<ERROR MATLAB:m_missing_operator | Error: Unexpected 'var'. Check for missing multiplication operator.>
+<END CT-18>
+<CASE CT-19>
+<CODE x = ;>
+<ERROR MATLAB:m_unexpected_sep | Error: Unexpected ';'. Check for missing or extra characters.>
+<END CT-19>
+<CASE CT-20>
+<CODE sqrt('abc')>
+<ERROR MATLAB:math:mustBeFloat | Invalid data type. Argument must be double or single.>
+<END CT-20>
+<CASE CT-21>
+<CODE reshape(1:6, 4, 2)>
+<ERROR MATLAB:getReshapeDims:notSameNumel | Number of elements must not change. Use [] as one of the size inputs to automatically calculate the appropriate size for that dimension.>
+<END CT-21>
+<CASE CT-22>
+<CODE inv([1 2 3; 4 5 6])>
+<ERROR MATLAB:square | Matrix must be square.>
+<END CT-22>
+<CASE CT-23>
+<CODE struct('a')>
+<ERROR MATLAB:invalidConversion | Conversion to struct from char is not possible.>
+<END CT-23>
+<CASE CT-24>
+<CODE struct(1)>
+<ERROR MATLAB:invalidConversion | Conversion to struct from double is not possible.>
+<END CT-24>
+<CASE CT-25>
+<CODE s = struct('a', 1); s.z>
+<ERROR MATLAB:nonExistentField | Unrecognized field name "z".>
+<END CT-25>
+<CASE CT-26>
+<CODE s = struct('a', 1); rmfield(s, 'z')>
+<ERROR MATLAB:rmfield:InvalidFieldname | A field named 'z' doesn't exist.>
+<END CT-26>
+<CASE CT-27>
+<CODE fieldnames(5)>
+<ERROR MATLAB:fieldnames:InvalidInput | Invalid input argument of type 'double'. Input must be a structure or a Java or COM object.>
+<END CT-27>
+<CASE CT-28>
+<CODE error('boom')>
+<ERROR  | boom>
+<END CT-28>
+<CASE CT-29>
+<CODE error('MyApp:Test', 'boom %d', 42)>
+<ERROR MyApp:Test | boom 42>
+<END CT-29>
+<CASE CT-30>
+<CODE assert(false, 'fallo controlado')>
+<ERROR  | fallo controlado>
+<END CT-30>
+<CASE CT-31>
+<CODE q = 1; q.b>
+<ERROR MATLAB:structRefFromNonStruct | Dot indexing is not supported for variables of type double.>
+<END CT-31>
+<CASE CT-32>
+<CODE num2str(pi, 'badfmt')>
+<ERROR MATLAB:num2str:fmtInvalid | 'badfmt' is an invalid format.>
+<END CT-32>
+<CASE CT-33>
+<CODE cell(1.5)>
+<ERROR MATLAB:NonIntegerInput | Size inputs must be integers.>
+<END CT-33>
+<CASE CT-34>
+<CODE length()>
+<ERROR MATLAB:minrhs | Not enough input arguments.>
+<END CT-34>
+<CASE CT-35>
+<CODE numel()>
+<ERROR MATLAB:minrhs | Not enough input arguments.>
+<END CT-35>
+<CASE CT-36>
+<CODE linspace(0, 1, -3)>
+
+ans =
+
+  1×0 empty double row vector
+
+<END CT-36>
+<CASE CT-37>
+<CODE eye(-2)>
+
+ans =
+
+     []
+
+<END CT-37>
+<CASE CT-38>
+<CODE polyfit(1:3, 1:5, 2)>
+<ERROR MATLAB:polyfit:XYSizeMismatch | The query points and the fitted values must have the same number of elements.>
+<END CT-38>
+<CASE CT-39>
+<CODE interp1([1 2 3], [1 2], 1.5)>
+<ERROR MATLAB:interp1:YVectorInvalidNumRows | X and V must be of the same length.>
+<END CT-39>
+<CASE CT-40>
+<CODE strjoin(1)>
+<ERROR MATLAB:strjoin:InvalidCellType | First input must be a string array or cell array of character vectors.>
+<END CT-40>
+<CASE CT-41>
+<CODE regexp(123)>
+<ERROR MATLAB:minrhs | Not enough input arguments.>
+<END CT-41>
+<CASE CT-42>
+<CODE sol = ode45(@(t,y) -y, [0 1], [1 2; 3 4]); disp('ode45 ok'); disp(size(sol.x)); disp(size(sol.y))>
+ode45 ok
+     1    11
+
+     4    11
+
+<END CT-42>
+<CASE CT-43>
+<CODE containers.Map()>
+
+ans = 
+
+  Map with properties:
+
+        Count: 0
+      KeyType: char
+    ValueType: any
+
+<END CT-43>
+<CASE CT-44>
+<CODE d = dictionary(); d(1)>
+<ERROR MATLAB:dictionary:UnconfiguredLookupNotSupported | Unable to perform a lookup in a dictionary with unset key and value types. Add entries to the dictionary.>
+<END CT-44>
+<CASE CT-45>
+<CODE v = [1 2 3]; v(end + 5)>
+<ERROR MATLAB:badsubscript | Index exceeds the number of array elements. Index must not exceed 3.>
+<END CT-45>
+<CASE CT-46>
+<CODE pkg_does_not_exist.fn(1)>
+<ERROR MATLAB:undefinedVarOrClass | Unable to resolve the name 'pkg_does_not_exist.fn'.>
+<END CT-46>
+<CASE CT-47>
+<CODE run('nonexistent_script_xyz.m')>
+<ERROR MATLAB:run:FileNotFound | nonexistent_script_xyz.m not found.>
+<END CT-47>
+<CASE CT-48>
+<CODE load('nonexistent_mat_xyz.mat')>
+<ERROR MATLAB:load:couldNotReadFile | Unable to find file or directory "nonexistent_mat_xyz.mat".>
+<END CT-48>
+<CASE CT-49>
+<CODE delete('nonexistent_file_xyz.txt')>
+[Warning: File 'nonexistent_file_xyz.txt' not found.] 
+[> In capture_catalogs (line 96)] 
+<WARN MATLAB:DELETE:FileNotFound | File 'nonexistent_file_xyz.txt' not found.>
+<END CT-49>
+<CASE CT-50>
+<CODE cd('C:\definitely_not_exists_xyz')>
+<ERROR MATLAB:cd:NonExistentFolder | Unable to change current folder to 'C:\definitely_not_exists_xyz' (Name is nonexistent or not a folder).>
+<END CT-50>
+<CASE CT-51>
+<CODE inv([1 2; 2 4])>
+[Warning: Matrix is singular to working precision.] 
+[> In capture_catalogs (line 96)
+] 
+
+ans =
+
+   Inf   Inf
+   Inf   Inf
+
+<WARN MATLAB:singularMatrix | Matrix is singular to working precision.>
+<END CT-51>
+<CASE CT-52>
+<CODE A = [1 2; 2 4 + 1e-13]; A \ [1; 2]>
+
+ans =
+
+     1
+     0
+
+<END CT-52>
+<CASE CT-53>
+<CODE x = int8(200)>
+
+x =
+
+  int8
+
+   127
+
+<END CT-53>
+<CASE CT-54>
+<CODE x = uint8(-1)>
+
+x =
+
+  uint8
+
+   0
+
+<END CT-54>
+<CASE CT-55>
+<CODE x = int16(1e6)>
+
+x =
+
+  int16
+
+   32767
+
+<END CT-55>
+<CASE CT-56>
+<CODE strmatch('a', {'a', 'b'})>
+
+ans =
+
+     1
+
+<END CT-56>
+<CASE CT-57>
+<CODE x = 1:10; y = x; p = polyfit(x, y, 9)>
+
+p =
+
+   -0.0000    0.0000   -0.0000    0.0000   -0.0000    0.0000   -0.0000    0.0000    1.0000    0.0000
+
+<END CT-57>
+<CASE CT-58>
+<CODE warning('texto de prueba')>
+[Warning: texto de prueba] 
+[> In capture_catalogs (line 96)] 
+<WARN  | texto de prueba>
+<END CT-58>
+<CASE CT-59>
+<CODE warning('MyWarn:Test', 'cuidado %d', 7)>
+[Warning: cuidado 7] 
+[> In capture_catalogs (line 96)] 
+<WARN MyWarn:Test | cuidado 7>
+<END CT-59>
+<CASE CT-60>
+<CODE fzero(@(x) x.^2 + 1, 0)>
+Exiting fzero: aborting search for an interval containing a sign change
+    because NaN or Inf function value encountered during search.
+(Function value at -1.7162e+154 is Inf.)
+Check function or try again with a different starting value.
+
+ans =
+
+   NaN
+
+<END CT-60>
+<CASE FM-01>
+<CODE V = [pi; 1234.5678; 1/3; 0.0000123456; 1e10; -1]; format short; disp(V)>
+   1.0e+10 *
+
+    0.0000
+    0.0000
+    0.0000
+    0.0000
+    1.0000
+   -0.0000
+
+<END FM-01>
+<CASE FM-02>
+<CODE V = [pi; 1234.5678; 1/3; 0.0000123456; 1e10; -1]; format long; disp(V)>
+   1.0e+10 *
+
+   0.000000000314159
+   0.000000123456780
+   0.000000000033333
+   0.000000000000001
+   1.000000000000000
+  -0.000000000100000
+
+<END FM-02>
+<CASE FM-03>
+<CODE V = [pi; 1234.5678; 1/3; 0.0000123456; 1e10; -1]; format shortE; disp(V)>
+   3.1416e+00
+   1.2346e+03
+   3.3333e-01
+   1.2346e-05
+   1.0000e+10
+  -1.0000e+00
+
+<END FM-03>
+<CASE FM-04>
+<CODE V = [pi; 1234.5678; 1/3; 0.0000123456; 1e10; -1]; format longE; disp(V)>
+     3.141592653589793e+00
+     1.234567800000000e+03
+     3.333333333333333e-01
+     1.234560000000000e-05
+     1.000000000000000e+10
+    -1.000000000000000e+00
+
+<END FM-04>
+<CASE FM-05>
+<CODE V = [pi; 1234.5678; 1/3; 0.0000123456; 1e10; -1]; format shortG; disp(V)>
+       3.1416
+       1234.6
+      0.33333
+   1.2346e-05
+        1e+10
+           -1
+
+<END FM-05>
+<CASE FM-06>
+<CODE V = [pi; 1234.5678; 1/3; 0.0000123456; 1e10; -1]; format longG; disp(V)>
+          3.14159265358979
+                 1234.5678
+         0.333333333333333
+               1.23456e-05
+               10000000000
+                        -1
+
+<END FM-06>
+<CASE FM-07>
+<CODE V = [pi; 1234.5678; 1/3; 0.0000123456; 1e10; -1]; format shortEng; disp(V)>
+     3.1416e+000
+     1.2346e+003
+   333.3333e-003
+    12.3456e-006
+    10.0000e+009
+    -1.0000e+000
+
+<END FM-07>
+<CASE FM-08>
+<CODE V = [pi; 1234.5678; 1/3; 0.0000123456; 1e10; -1]; format longEng; disp(V)>
+    3.14159265358979e+000
+    1.23456780000000e+003
+    333.333333333333e-003
+    12.3456000000000e-006
+    10.0000000000000e+009
+   -1.00000000000000e+000
+
+<END FM-08>
+<CASE FM-09>
+<CODE V = [pi; 1234.5678; 1/3; 0.0000123456; 1e10; -1]; format bank; disp(V)>
+          3.14
+       1234.57
+          0.33
+          0.00
+ 10000000000.00
+         -1.00
+
+<END FM-09>
+<CASE FM-10>
+<CODE V = [pi; 1234.5678; 1/3; 0.0000123456; 1e10; -1]; format hex; disp(V)>
+   400921fb54442d18
+   40934a456d5cfaad
+   3fd5555555555555
+   3ee9e3fe580f5494
+   4202a05f20000000
+   bff0000000000000
+
+<END FM-10>
+<CASE FM-11>
+<CODE V = [pi; 1234.5678; 1/3; 0.0000123456; 1e10; -1]; format rat; disp(V)>
+     355/113   
+   45679/37    
+       1/3     
+       2/162001
+10000000000       
+      -1       
+
+<END FM-11>
+<CASE FM-12>
+<CODE V = [pi; 1234.5678; 1/3; 0.0000123456; 1e10; -1]; format +; disp(V)>
++
++
++
++
++
+-
+
+<END FM-12>
+<CASE FM-13>
+<CODE V = [pi; 1234.5678; 1/3; 0.0000123456; 1e10; -1]; format compact; disp(V); disp(V')>
+   1.0e+10 *
+    0.0000
+    0.0000
+    0.0000
+    0.0000
+    1.0000
+   -0.0000
+   1.0e+10 *
+    0.0000    0.0000    0.0000    0.0000    1.0000   -0.0000
+<END FM-13>
+<EOG>
