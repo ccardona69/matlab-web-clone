@@ -1,0 +1,606 @@
+[
+  {
+    "component": "academyinteractions",
+    "evidence_id": "ev_c68394c5c1e281d403897d7498add6237826cdf0d1df657d6f32c8ac4df01f25",
+    "predicate_type": "rea.javascript-application-analysis",
+    "operation": "analyze_javascript_application",
+    "input_path": "C:\\Program Files\\MATLAB\\R2026b\\ui\\academyinteractions",
+    "root_artifact_sha256": "31a22ae7b2adc79df1b921048f616d000f57a3023ecc9989f74a87771d7db958",
+    "inventory_manifest_id": "agm_2dc284d2d472a0bfe30f492f938040576e91a8ad916b73bede02cc9274332c8a",
+    "integrity_contradictions": 0,
+    "statistics": {
+      "relevant_files": 8,
+      "parsed_javascript_files": 4,
+      "modules": 1364,
+      "findings": 4154,
+      "visited_ast_nodes": 764568,
+      "parse_failures": 0,
+      "text_bytes_read": 3498326,
+      "invalid_utf8_files": 0
+    },
+    "graph": {
+      "nodes": 2804,
+      "edges": 5532,
+      "coverage_status": "partial",
+      "truncated": false,
+      "root_nodes": [
+        {
+          "kind": "artifact",
+          "label": "artifact root"
+        }
+      ],
+      "entry_modules": [
+        "021e21d4122c81f22c23b74a721bcdbc666634bb",
+        "0c4e6e2b64c5e2749887b9207ea506c8989adfcf",
+        "147",
+        "18affefb3a1ed1e6f8fc1c52460b34cea4e87d08",
+        "32dd145b9b4caa9c17a4961b30e180764db9d49e",
+        "333e14b75da5be8be03350271b5e5f692065ab3c",
+        "35b0a62c03b0f0eea973a601405c86b26dddec38",
+        "3722a77dac03a5ad6f4530782143ec96ce0f5080",
+        "3b83839f21355b5aa6d9dc73c01c4e45a129df3c",
+        "3f891d9d3dc8825c0b559c8a83da66847ff00a56",
+        "3f8b55662a0cdc7f6f71e8f08fbad658b4670ab0",
+        "449735fca2162ca7a795c9e9a4310510a0c1c562",
+        "51c75dbf3c1e9f5a4f565124c8fb275cdb5cd888",
+        "52d0f35c9d6ce27e9dbcc174504898629cda0b6a",
+        "55b0ef276bb356bef7b4644aede22c3a72b49acb",
+        "65400cbb1ebdc901a03aaeecbc44c8f64eb52bd4",
+        "6cf4f8e416746ecd164385fa6278a5910e9b3697",
+        "6d85a0331b95f9cb9a50f3da39252f2c617fd0ae",
+        "72f5893ed6a0dcf631e0525d16f76ec480228dbe",
+        "7664432ca02722d5b14616321a34544e57dae4e3",
+        "7c3115613eff582a33250c7f860ffe8a457998a5",
+        "80b4ee0f385472c665d72715b69acc2bec5e6a68",
+        "844065d67b2d2f35ba414ab08cba43cac705d59d",
+        "867",
+        "8aac2aab0eabf31b6a32f64f1ffc733918ad69f0",
+        "8d895f255882b0f42bcb286afe2d25db1bedea03",
+        "95db858a048055d75de1b67e29b81465a2698754",
+        "9e366860f40ee8a11a7a8771881f109c0a522f49",
+        "9fcd133a45633b7b57a67be99ee6d54771b8c44f",
+        "DOMPurify/purify",
+        "MW/layout/LayoutChildProperty",
+        "MW/layout/LayoutConstants",
+        "MW/layout/LayoutContainerEvent",
+        "MW/layout/PerWindowStateful",
+        "MW/layout/StatefulExtension",
+        "MW/toolstrip/constants/MiscConstants",
+        "MW/uiframework/system/InlineFrame",
+        "MW/uiframework/system/WindowFrame",
+        "MW/uiframework/uicontainer/ChildProperties",
+        "MW/uiframework/uicontainer/UIComponentFactory",
+        "MW/uiframework/uicontainer/WindowUtils",
+        "MW/uiframework/utils",
+        "MW/window/AbstractController",
+        "MW/window/AbstractStatefulWindow",
+        "MW/window/CEFController",
+        "MW/window/DialogController",
+        "MW/window/SystemBrowserController",
+        "MW/window/WindowDriver",
+        "Tippy/tippy-bundle.umd",
+        "a3a535c2d687efcc7c013d65899cddef2f52290f"
+      ]
+    },
+    "semantic_graph": {
+      "nodes": 26,
+      "relations": 20,
+      "coverage_status": "partial",
+      "truncated": true,
+      "unknowns": 24
+    },
+    "partial_files": [
+      "academy_modules/release/bundle.mwBundle.academy_modules-lib.js",
+      "trainer_panel/release/bundle.mwBundle.academyinteractions-trainer_panel.d535a7588f7b4affc3cf.js"
+    ],
+    "limitations": [
+      "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+      "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+      "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+      "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+      "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+      "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code.",
+      "academy_modules/release/bundle.mwBundle.academy_modules-lib.js: Resource constraint during analyze_javascript_application: Semantic graph for academy_modules/release/bundle.mwBundle.academy_modules-lib.js exceeds the parent's remaining result budget; static and module facts were retained",
+      "trainer_panel/release/bundle.mwBundle.academyinteractions-trainer_panel.d535a7588f7b4affc3cf.js: Resource constraint during analyze_javascript_application: Semantic graph for trainer_panel/release/bundle.mwBundle.academyinteractions-trainer_panel.d535a7588f7b4affc3cf.js exceeds the parent's remaining result budget; static and module facts were retained"
+    ],
+    "top_limitations": [
+      "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+      "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+      "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+      "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution."
+    ]
+  },
+  {
+    "component": "desktop-default-plugins",
+    "evidence_id": "ev_5e26e75abdb805b3056f71fd5f4b694ff94b59f17c91725387756ed2c5ed5782",
+    "predicate_type": "rea.javascript-application-analysis",
+    "operation": "analyze_javascript_application",
+    "input_path": "C:\\Program Files\\MATLAB\\R2026b\\ui\\desktop-default-plugins",
+    "root_artifact_sha256": "d822439995ac287193d76b7e8a241dd26fa3443e93c49758d717fb5fce2809ca",
+    "inventory_manifest_id": "agm_05fddfca454ada07029913ff5a6af74e4f8ac4c18455e0fe306dea2a0940b7c8",
+    "integrity_contradictions": 0,
+    "statistics": {
+      "relevant_files": 5,
+      "parsed_javascript_files": 2,
+      "modules": 3093,
+      "findings": 13012,
+      "visited_ast_nodes": 1760390,
+      "parse_failures": 0,
+      "text_bytes_read": 7998375,
+      "invalid_utf8_files": 0
+    },
+    "graph": {
+      "nodes": 9,
+      "edges": 8,
+      "coverage_status": "partial",
+      "truncated": false,
+      "root_nodes": [
+        {
+          "kind": "artifact",
+          "label": "artifact root"
+        }
+      ],
+      "entry_modules": [
+        "release/dojoConfig-release-global.js"
+      ]
+    },
+    "semantic_graph": {
+      "nodes": 13,
+      "relations": 10,
+      "coverage_status": "partial",
+      "truncated": true,
+      "unknowns": 12
+    },
+    "partial_files": [
+      "release/bundle.mwBundle.desktop-default-plugins.7d81e841c567c38a94f2.js"
+    ],
+    "limitations": [
+      "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+      "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+      "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+      "Resource constraint during analyze_javascript_application: Expanded application relationships for release/bundle.mwBundle.desktop-default-plugins.7d81e841c567c38a94f2.js exceed the parent's result budget; complete static facts were retained on the file node",
+      "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+      "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+      "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code.",
+      "release/bundle.mwBundle.desktop-default-plugins.7d81e841c567c38a94f2.js: Resource constraint during analyze_javascript_application: The parent reserved its remaining result capacity for static observations; semantic analysis of release/bundle.mwBundle.desktop-default-plugins.7d81e841c567c38a94f2.js was not started"
+    ],
+    "top_limitations": [
+      "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+      "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+      "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+      "Resource constraint during analyze_javascript_application: Expanded application relationships for release/bundle.mwBundle.desktop-default-plugins.7d81e841c567c38a94f2.js exceed the parent's result budget; complete static facts were retained on the file node"
+    ]
+  },
+  {
+    "component": "help",
+    "evidence_id": "ev_34a4488159d67de9787b3b4e2192d467e685b3502f3d0f7381de29e2e7597e76",
+    "predicate_type": "rea.javascript-application-analysis",
+    "operation": "analyze_javascript_application",
+    "input_path": "C:\\Program Files\\MATLAB\\R2026b\\ui\\help",
+    "root_artifact_sha256": "3650eda4c111995e7aae34e9d1290e69c6f49b1915daf50ca1ead8ad06ce2ca2",
+    "inventory_manifest_id": "agm_f70006410c93b17612bef95be811755326bc6079f43ae7204ee7ce9b649e3a93",
+    "integrity_contradictions": 0,
+    "statistics": {
+      "relevant_files": 12,
+      "parsed_javascript_files": 7,
+      "modules": 979,
+      "findings": 3526,
+      "visited_ast_nodes": 641724,
+      "parse_failures": 0,
+      "text_bytes_read": 2332584,
+      "invalid_utf8_files": 0
+    },
+    "graph": {
+      "nodes": 745,
+      "edges": 3215,
+      "coverage_status": "partial",
+      "truncated": false,
+      "root_nodes": [
+        {
+          "kind": "artifact",
+          "label": "artifact root"
+        }
+      ],
+      "entry_modules": [
+        "104",
+        "1052",
+        "1062",
+        "1075",
+        "1085",
+        "1139",
+        "1235",
+        "1247",
+        "1252",
+        "1257",
+        "126",
+        "1274",
+        "1288",
+        "1293",
+        "1323",
+        "1343",
+        "1370",
+        "1380",
+        "1417",
+        "1458",
+        "147",
+        "1471",
+        "1472",
+        "1473",
+        "1525",
+        "1539",
+        "1546",
+        "1560",
+        "1595",
+        "1653",
+        "1663",
+        "1713",
+        "173",
+        "1750",
+        "1778",
+        "1783",
+        "1785",
+        "1790",
+        "1844",
+        "1893",
+        "1936",
+        "1949",
+        "1957",
+        "1959",
+        "2069",
+        "2073",
+        "2103",
+        "211",
+        "2112",
+        "2118"
+      ]
+    },
+    "semantic_graph": {
+      "nodes": 20039,
+      "relations": 9979,
+      "coverage_status": "partial",
+      "truncated": true,
+      "unknowns": 26884
+    },
+    "partial_files": [
+      "helpbrowser/release/bundle.helpservices.js",
+      "helpbrowser/release/bundle.index.js",
+      "helpwin/release/bundle.index.js",
+      "richtextdoc/release/bundle.index.js"
+    ],
+    "limitations": [
+      "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+      "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+      "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+      "Resource constraint during analyze_javascript_application: Expanded application relationships for richtextdoc/release/bundle.index.js exceed the parent's result budget; complete static facts were retained on the file node",
+      "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+      "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+      "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code.",
+      "helpbrowser/helpbrowser/htmltext.html has 1 inline JavaScript body starting at line 7 that was not analyzed; endpoints, storage, imports and other facts in it are absent from the evidence.",
+      "helpbrowser/release/bundle.index.js: Resource constraint during analyze_javascript_application: Semantic graph for helpbrowser/release/bundle.index.js exceeds the parent's remaining result budget; static and module facts were retained",
+      "helpwin/index.html has 1 inline JavaScript body starting at line 9 that was not analyzed; endpoints, storage, imports and other facts in it are absent from the evidence.",
+      "helpwin/release/bundle.index.js: Resource constraint during analyze_javascript_application: Semantic graph for helpwin/release/bundle.index.js exceeds the parent's remaining result budget; static and module facts were retained",
+      "richtextdoc/release/bundle.index.js: Resource constraint during analyze_javascript_application: The parent reserved its remaining result capacity for static observations; semantic analysis of richtextdoc/release/bundle.index.js was not started"
+    ],
+    "top_limitations": [
+      "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+      "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+      "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+      "Resource constraint during analyze_javascript_application: Expanded application relationships for richtextdoc/release/bundle.index.js exceed the parent's result budget; complete static facts were retained on the file node"
+    ]
+  },
+  {
+    "component": "install",
+    "evidence_id": "ev_c7703f2a1fb01c980d68851ba41a5817cc36f51766d23228516151cf3ff90022",
+    "predicate_type": "rea.javascript-application-analysis",
+    "operation": "analyze_javascript_application",
+    "input_path": "C:\\Program Files\\MATLAB\\R2026b\\ui\\install",
+    "root_artifact_sha256": "86a4138d65526a8ddee230723ff188de5fbdd109ad9dca0f183bf808cee3b3c8",
+    "inventory_manifest_id": "agm_2667f91f52505ba5c91dad700f08541933802d74c26f801ed33d58e488e04e9e",
+    "integrity_contradictions": 0,
+    "statistics": {
+      "relevant_files": 23,
+      "parsed_javascript_files": 15,
+      "modules": 3691,
+      "findings": 12913,
+      "visited_ast_nodes": 2465236,
+      "parse_failures": 0,
+      "text_bytes_read": 9358692,
+      "invalid_utf8_files": 0
+    },
+    "graph": {
+      "nodes": 1236,
+      "edges": 4950,
+      "coverage_status": "partial",
+      "truncated": false,
+      "root_nodes": [
+        {
+          "kind": "artifact",
+          "label": "artifact root"
+        }
+      ],
+      "entry_modules": [
+        "10070",
+        "1051",
+        "1074",
+        "10856",
+        "11039",
+        "11139",
+        "11178",
+        "11217",
+        "11300",
+        "11323",
+        "1142",
+        "11427",
+        "11516",
+        "11605",
+        "11705",
+        "11801",
+        "11917",
+        "1203",
+        "12079",
+        "12105",
+        "12112",
+        "1225",
+        "12348",
+        "12439",
+        "12465",
+        "12498",
+        "1264",
+        "12652",
+        "12666",
+        "12735",
+        "12763",
+        "1286",
+        "12918",
+        "12988",
+        "13153",
+        "13247",
+        "13250",
+        "1336",
+        "13385",
+        "13586",
+        "13611",
+        "13633",
+        "13691",
+        "13699",
+        "13701",
+        "13741",
+        "1387",
+        "139",
+        "14248",
+        "14271"
+      ]
+    },
+    "semantic_graph": {
+      "nodes": 85,
+      "relations": 50,
+      "coverage_status": "partial",
+      "truncated": true,
+      "unknowns": 65
+    },
+    "partial_files": [
+      "addons_ui/bundle.index.js",
+      "install_management_ui/bundle.index.js",
+      "installer_login/bundle.index.js",
+      "product_installer_ui/bundle.index.js",
+      "supportsoftwareclient/bundle.index.js"
+    ],
+    "limitations": [
+      "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+      "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+      "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+      "Resource constraint during analyze_javascript_application: Expanded application relationships for install_management_ui/bundle.index.js exceed the parent's result budget; complete static facts were retained on the file node",
+      "Resource constraint during analyze_javascript_application: Expanded application relationships for product_installer_ui/bundle.index.js exceed the parent's result budget; complete static facts were retained on the file node",
+      "Resource constraint during analyze_javascript_application: Expanded application relationships for supportsoftwareclient/bundle.index.js exceed the parent's result budget; complete static facts were retained on the file node",
+      "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+      "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+      "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code.",
+      "addons_ui/bundle.index.js: Resource constraint during analyze_javascript_application: Semantic graph for addons_ui/bundle.index.js exceeds the parent's remaining result budget; static and module facts were retained",
+      "install_management_ui/bundle.index.js: Resource constraint during analyze_javascript_application: The parent reserved its remaining result capacity for static observations; semantic analysis of install_management_ui/bundle.index.js was not started",
+      "installer_login/bundle.index.js: Resource constraint during analyze_javascript_application: Semantic graph for installer_login/bundle.index.js exceeds the parent's remaining result budget; static and module facts were retained",
+      "product_installer_ui/bundle.index.js: Resource constraint during analyze_javascript_application: The parent reserved its remaining result capacity for static observations; semantic analysis of product_installer_ui/bundle.index.js was not started",
+      "supportsoftwareclient/bundle.index.js: Resource constraint during analyze_javascript_application: The parent reserved its remaining result capacity for static observations; semantic analysis of supportsoftwareclient/bundle.index.js was not started"
+    ],
+    "top_limitations": [
+      "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+      "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+      "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+      "Resource constraint during analyze_javascript_application: Expanded application relationships for install_management_ui/bundle.index.js exceed the parent's result budget; complete static facts were retained on the file node"
+    ]
+  },
+  {
+    "component": "mw-taskbar",
+    "evidence_id": "ev_76963116617defae75f0ae0a0e09818f10ac5ca4dd13f6c60e18581bbad8d260",
+    "predicate_type": "rea.javascript-application-analysis",
+    "operation": "analyze_javascript_application",
+    "input_path": "C:\\Program Files\\MATLAB\\R2026b\\ui\\mw-taskbar",
+    "root_artifact_sha256": "7826be103a01c1ee931df0b01af6d4dab1eb704ccfb3df5f37465e5d63a7d9f0",
+    "inventory_manifest_id": "agm_70bd18655b2fbcaeed65d1921ddd266e10096fdde89e89fe82e525bfb47ba449",
+    "integrity_contradictions": 0,
+    "statistics": {
+      "relevant_files": 3,
+      "parsed_javascript_files": 2,
+      "modules": 9,
+      "findings": 11,
+      "visited_ast_nodes": 5865,
+      "parse_failures": 0,
+      "text_bytes_read": 17606,
+      "invalid_utf8_files": 0
+    },
+    "graph": {
+      "nodes": 17,
+      "edges": 28,
+      "coverage_status": "partial",
+      "truncated": false,
+      "root_nodes": [
+        {
+          "kind": "artifact",
+          "label": "artifact root"
+        }
+      ],
+      "entry_modules": [
+        "110",
+        "141",
+        "233",
+        "360",
+        "372",
+        "411",
+        "440",
+        "472",
+        "944",
+        "release/bundle.index.js",
+        "release/mw-taskbar-ui/dojoConfig-release-global.js"
+      ]
+    },
+    "semantic_graph": {
+      "nodes": 4381,
+      "relations": 4444,
+      "coverage_status": "unknown",
+      "truncated": false,
+      "unknowns": 1365
+    },
+    "partial_files": [
+      "release/bundle.index.js"
+    ],
+    "limitations": [
+      "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+      "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+      "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+      "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+      "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+      "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code."
+    ],
+    "top_limitations": [
+      "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+      "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+      "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+      "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution."
+    ]
+  },
+  {
+    "component": "webgui",
+    "evidence_id": "ev_da1e2abbbf772ca13bea984414666794c07745b53e66e9b33dcd6fc52df5d6b5",
+    "predicate_type": "rea.javascript-application-analysis",
+    "operation": "analyze_javascript_application",
+    "input_path": "C:\\Program Files\\MATLAB\\R2026b\\ui\\webgui",
+    "root_artifact_sha256": "7e6d7ef589dba4972517bc04674fdef5030f6142dc24aa441adfcea43e06d8ed",
+    "inventory_manifest_id": "agm_aded0e69c9c9553436d356fe3904229388b10d2f14bc2b087e2dffd6a5531f91",
+    "integrity_contradictions": 0,
+    "statistics": {
+      "relevant_files": 50,
+      "parsed_javascript_files": 32,
+      "modules": 1558,
+      "findings": 7933,
+      "visited_ast_nodes": 1022553,
+      "parse_failures": 0,
+      "text_bytes_read": 22481166,
+      "invalid_utf8_files": 0
+    },
+    "graph": {
+      "nodes": 318,
+      "edges": 382,
+      "coverage_status": "partial",
+      "truncated": false,
+      "root_nodes": [
+        {
+          "kind": "artifact",
+          "label": "artifact root"
+        }
+      ],
+      "entry_modules": [
+        "105703",
+        "108492",
+        "110444",
+        "112950",
+        "113055",
+        "120576",
+        "124837",
+        "125170",
+        "125172",
+        "138042",
+        "139069",
+        "141635",
+        "151410",
+        "17073",
+        "175154",
+        "181333",
+        "181456",
+        "192545",
+        "194649",
+        "194658",
+        "199022",
+        "205325",
+        "211443",
+        "214153",
+        "229134",
+        "230537",
+        "24034",
+        "244458",
+        "244553",
+        "246443",
+        "251417",
+        "252173",
+        "25742",
+        "273784",
+        "294521",
+        "312828",
+        "316955",
+        "317774",
+        "318560",
+        "320676",
+        "332829",
+        "355765",
+        "361628",
+        "364455",
+        "371733",
+        "377827",
+        "386055",
+        "387112",
+        "387513",
+        "390048"
+      ]
+    },
+    "semantic_graph": {
+      "nodes": 42505,
+      "relations": 43949,
+      "coverage_status": "partial",
+      "truncated": true,
+      "unknowns": 14356
+    },
+    "partial_files": [
+      "src/release/3365190-20260824045858/bundle.appshell.js",
+      "src/release/3365190-20260824045858/bundle.common.js",
+      "src/release/3365190-20260824045858/bundle.index-jsd-cr.js",
+      "src/release/3365190-20260824045858/bundle.index-jsd.js",
+      "src/release/3365190-20260824045858/bundle.index-mos.js",
+      "src/release/3365190-20260824045858/bundle.index-nologin.js",
+      "src/release/3365190-20260824045858/bundle.index.js",
+      "src/release/3365190-20260824045858/bundle.undocked.js",
+      "src/release/3365190-20260824045858/bundle.window.js",
+      "src/release/3365190-20260824045858/matlab_favorite_commands/js/FavoriteCommandsDataService.js",
+      "src/release/3365190-20260824045858/matlab_favorite_commands/js/FavoriteCommandsEditorModule.js",
+      "src/release/3365190-20260824045858/matlab_favorite_commands/js/FavoriteCommandsManager.js"
+    ],
+    "limitations": [
+      "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+      "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+      "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+      "Resource constraint during analyze_javascript_application: Expanded application relationships for src/release/3365190-20260824045858/bundle.appshell.js exceed the parent's result budget; complete static facts were retained on the file node",
+      "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+      "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+      "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code.",
+      "src/authorization-page.html has 1 inline JavaScript body starting at line 8 that was not analyzed; endpoints, storage, imports and other facts in it are absent from the evidence.",
+      "src/index-jsd.html has 3 inline JavaScript bodies starting at lines 44, 62, 87 that were not analyzed; endpoints, storage, imports and other facts in them are absent from the evidence.",
+      "src/release/3365190-20260824045858/bundle.361.js: Resource constraint during analyze_javascript_application: JavaScript static checkpoint exceeds its complete-fact byte budget",
+      "src/release/3365190-20260824045858/bundle.appshell.js: Resource constraint during analyze_javascript_application: The parent reserved its remaining result capacity for static observations; semantic analysis of src/release/3365190-20260824045858/bundle.appshell.js was not started",
+      "src/undocked-container.html has 1 inline JavaScript body starting at line 46 that was not analyzed; endpoints, storage, imports and other facts in it are absent from the evidence.",
+      "src/undocked.html has 1 inline JavaScript body starting at line 47 that was not analyzed; endpoints, storage, imports and other facts in it are absent from the evidence."
+    ],
+    "top_limitations": [
+      "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+      "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+      "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+      "Resource constraint during analyze_javascript_application: Expanded application relationships for src/release/3365190-20260824045858/bundle.appshell.js exceed the parent's result budget; complete static facts were retained on the file node"
+    ]
+  }
+]

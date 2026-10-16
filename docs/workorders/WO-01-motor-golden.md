@@ -1,0 +1,12 @@
+# WO-01 | WS-1 | Motor `.m`: paridad contra capturas doradas
+
+- **Asignada a:** OpenCode + Codex
+- **Evidencia:** `docs/acceptance/golden-output.txt` (oráculo capturado del MATLAB real, R2026b 26.2.0.3386108) + `docs/acceptance/acceptance-20.json` + `rea/reconstructed/` (local, 469 módulos jsconsole) + `rea/reconstruction-obligation-ledger.md`
+- **Objetivo:** que el intérprete del gemelo (`backend/matlab/`) produzca salidas **idénticas** a las doradas para los 20 casos AC-01…AC-20: formato numérico short/long/rat, display de matrices y vectores, complejos, Inf/NaN, struct, `whos`, y textos exactos de errores y warnings.
+- **Entregable:**
+  1. Ajustes en `backend/matlab/` (interpreter + bibliotecas) para los casos que fallen.
+  2. `tests/test_acceptance.py`: parsea `golden-output.txt` (marcadores `<CASE>`, `<CODE>`, `<ERROR id | msg>`, `<WARN id | msg>`, `<END>`), ejecuta cada caso en el motor y compara línea a línea. Los fallos deben listar diff esperado vs obtenido.
+  3. En el parser: el texto canónico de errores/warnings son los marcadores `<ERROR ...>`/`<WARN ...>`; ignorar los bloques inline `[Warning: ...]` con stack trace (ruido del modo batch).
+- **Aceptación:** `pytest tests/test_acceptance.py -q` verde en CI (ubuntu), y `pytest` completo sin regresiones (73 tests actuales siguen pasando).
+- **Límites:** no ejecutar MATLAB (las capturas ya existen); no modificar `golden-output.txt` ni `acceptance-20.json` salvo añadir casos (coordinado). No commitear contenido derivado de MathWorks.
+- **Rama sugerida:** `ws/1-motor-golden`

@@ -1,0 +1,160 @@
+<GOLDEN MATLAB 26.2.0.3386108 (R2026b)>
+<PLATFORM PCWIN64>
+<CASE AC-01>
+<CODE pi>
+
+ans =
+
+    3.1416
+
+<END AC-01>
+<CASE AC-02>
+<CODE format long; pi>
+
+ans =
+
+   3.141592653589793
+
+<END AC-02>
+<CASE AC-03>
+<CODE A = [1 2 3; 4 5 6; 7 8 10]; disp(A)>
+     1     2     3
+     4     5     6
+     7     8    10
+
+<END AC-03>
+<CASE AC-04>
+<CODE disp([1 2 3; 4 5 6; 7 8 10]');>
+     1     4     7
+     2     5     8
+     3     6    10
+
+<END AC-04>
+<CASE AC-05>
+<CODE magic(4)>
+
+ans =
+
+    16     2     3    13
+     5    11    10     8
+     9     7     6    12
+     4    14    15     1
+
+<END AC-05>
+<CASE AC-06>
+<CODE sum(1:100)>
+
+ans =
+
+        5050
+
+<END AC-06>
+<CASE AC-07>
+<CODE x = linspace(0, 2*pi, 5); disp(x)>
+         0    1.5708    3.1416    4.7124    6.2832
+
+<END AC-07>
+<CASE AC-08>
+<CODE sqrt(-4)>
+
+ans =
+
+   0.0000 + 2.0000i
+
+<END AC-08>
+<CASE AC-09>
+<CODE 1/0>
+
+ans =
+
+   Inf
+
+<END AC-09>
+<CASE AC-10>
+<CODE 0/0>
+
+ans =
+
+   NaN
+
+<END AC-10>
+<CASE AC-11>
+<CODE sprintf('%.3f', pi)>
+
+ans =
+
+    '3.142'
+
+<END AC-11>
+<CASE AC-12>
+<CODE num2str(pi, '%.5e')>
+
+ans =
+
+    '3.14159e+00'
+
+<END AC-12>
+<CASE AC-13>
+<CODE strcat('ma', 'tlab')>
+
+ans =
+
+    'matlab'
+
+<END AC-13>
+<CASE AC-14>
+<CODE sin(1, 2, 3)>
+<ERROR MATLAB:maxrhs | Too many input arguments.>
+<END AC-14>
+<CASE AC-15>
+<CODE undefined_fn_xyz(1)>
+<ERROR MATLAB:UndefinedFunction | Undefined function 'undefined_fn_xyz' for input arguments of type 'double'.>
+<END AC-15>
+<CASE AC-16>
+<CODE inv([1 2; 2 4])>
+[Warning: Matrix is singular to working precision.] 
+[> In capture_golden (line 43)
+] 
+
+ans =
+
+   Inf   Inf
+   Inf   Inf
+
+<WARN MATLAB:singularMatrix | Matrix is singular to working precision.>
+<END AC-16>
+<CASE AC-17>
+<CODE eig([2 0; 0 3])>
+
+ans =
+
+     2
+     3
+
+<END AC-17>
+<CASE AC-18>
+<CODE format rat; pi>
+
+ans =
+
+     355/113   
+
+<END AC-18>
+<CASE AC-19>
+<CODE struct('a', 1)>
+
+ans = 
+
+  struct with fields:
+
+    a: 1
+
+<END AC-19>
+<CASE AC-20>
+<CODE q = 42; whos q>
+  Name      Size            Bytes  Class     Attributes
+
+  q         1x1                 8  double              
+
+<END AC-20>
+<EOG>

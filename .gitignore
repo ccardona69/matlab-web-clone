@@ -12,5 +12,8 @@ venv/
 # REA evidence bundles (large JSONs >100MB) and recovered third-party sources
 /rea/*.json
 /rea/ui-analysis/*.json
+# Exception: small metadata digests (no MathWorks code, only inventories/hashes)
+!/rea/ui-analysis/ui-components-digest.json
+!/rea/ui-analysis/ui-components-details.json
 /rea/reconstructed/
 /rea/recovered-src/

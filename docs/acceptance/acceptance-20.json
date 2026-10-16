@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "release": "R2026b",
+  "release_version": "26.2.0.3386108",
+  "captured_by": "scripts/acceptance/capture_golden.m (MATLAB real, licencia activa)",
+  "golden_output": "docs/acceptance/golden-output.txt",
+  "cases": [
+    { "id": "AC-01", "code": "pi", "check": "exact", "description": "pi con formato corto" },
+    { "id": "AC-02", "code": "format long; pi", "check": "exact", "description": "pi con formato largo" },
+    { "id": "AC-03", "code": "A = [1 2 3; 4 5 6; 7 8 10]; disp(A)", "check": "exact", "description": "matriz con disp" },
+    { "id": "AC-04", "code": "disp([1 2 3; 4 5 6; 7 8 10]')", "check": "exact", "description": "transpuesta con disp" },
+    { "id": "AC-05", "code": "magic(4)", "check": "exact", "description": "magic(4) con eco de ans" },
+    { "id": "AC-06", "code": "sum(1:100)", "check": "exact", "description": "suma de rango" },
+    { "id": "AC-07", "code": "x = linspace(0, 2*pi, 5); disp(x)", "check": "exact", "description": "vector fila" },
+    { "id": "AC-08", "code": "sqrt(-4)", "check": "exact", "description": "complejo imaginario" },
+    { "id": "AC-09", "code": "1/0", "check": "exact", "description": "Inf" },
+    { "id": "AC-10", "code": "0/0", "check": "exact", "description": "NaN" },
+    { "id": "AC-11", "code": "sprintf('%.3f', pi)", "check": "exact", "description": "sprintf de pi" },
+    { "id": "AC-12", "code": "num2str(pi, '%.5e')", "check": "exact", "description": "num2str notacion cientifica" },
+    { "id": "AC-13", "code": "strcat('ma', 'tlab')", "check": "exact", "description": "concatenacion de char" },
+    { "id": "AC-14", "code": "sin(1, 2, 3)", "check": "exact", "description": "error: demasiados argumentos" },
+    { "id": "AC-15", "code": "undefined_fn_xyz(1)", "check": "exact", "description": "error: funcion no definida" },
+    { "id": "AC-16", "code": "inv([1 2; 2 4])", "check": "exact", "description": "advertencia: matriz singular" },
+    { "id": "AC-17", "code": "eig([2 0; 0 3])", "check": "exact", "description": "eigenvalores" },
+    { "id": "AC-18", "code": "format rat; pi", "check": "exact", "description": "formato racional" },
+    { "id": "AC-19", "code": "struct('a', 1)", "check": "exact", "description": "struct escalar" },
+    { "id": "AC-20", "code": "q = 42; whos q", "check": "exact", "description": "workspace whos" }
+  ]
+}
