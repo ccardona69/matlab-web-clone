@@ -141,6 +141,98 @@ CURRICULUM: list[tuple[str, str]] = [
     ("meta", "computer"),
     ("meta", "pwd"),
     ("meta", "clc"),
+    # --- segunda cosecha: ayuda y documentacion ---
+    ("help", "help magic"),
+    ("help", "help sin"),
+    ("help", "lookfor eigenvalue"),
+    ("help", "doc format"),
+    ("help", "which plot"),
+    ("help", "exist('magic')"),
+    # --- segunda cosecha: errores extra ---
+    ("error2", "A(1, 99)"),
+    ("error2", "[1 2; 3]"),
+    ("error2", "z = 'a' + [1 2]"),
+    ("error2", "s.campo_inexistente"),
+    ("error2", "1 + 'a'"),
+    ("error2", "error('mi error custom')"),
+    ("error2", "try, error('dentro'), catch e, disp(e.message), end"),
+    ("error2", "assert(false, 'fallo assert')"),
+    ("error2", "A(end+10)"),
+    ("error2", "x = [1,2,3"),
+    # --- logica / comparadores ---
+    ("logic", "1 > 2"),
+    ("logic", "true & false"),
+    ("logic", "true | false"),
+    ("logic", "~true"),
+    ("logic", "xor(true, false)"),
+    ("logic", "A(A > 5)"),
+    ("logic", "any([0 1 0])"),
+    ("logic", "all([1 1 0])"),
+    ("logic", "find(A > 5)"),
+    # --- complejos / especiales ---
+    ("complex", "3 + 4i"),
+    ("complex", "abs(3 + 4i)"),
+    ("complex", "angle(1 + i)"),
+    ("complex", "conj(3 + 4i)"),
+    ("complex", "real(3 + 4i)"),
+    ("complex", "imag(3 + 4i)"),
+    ("complex", "eps"),
+    ("complex", "realmax"),
+    ("complex", "realmin"),
+    ("complex", "NaN"),
+    # --- algebra lineal extra ---
+    ("linalg", "trace(A)"),
+    ("linalg", "norm(A)"),
+    ("linalg", "cond(A)"),
+    ("linalg", "B = [1 2; 3 4]; [L,U] = lu(B)"),
+    ("linalg", "B = [1 2; 3 4]; [Q,R] = qr(B)"),
+    ("linalg", "B = [4 2; 2 3]; chol(B)"),
+    ("linalg", "svd([1 2; 3 4])"),
+    ("linalg", "fft([1 2 3 4])"),
+    ("linalg", "ifft(fft([1 2 3 4]))"),
+    # --- polinomios / convolucion ---
+    ("poly", "roots([1 -3 2])"),
+    ("poly", "poly([1 2 3])"),
+    ("poly", "polyval([1 2 1], 3)"),
+    ("poly", "conv([1 1], [1 1])"),
+    # --- estadistica ---
+    ("stats", "var([1 2 3 4])"),
+    ("stats", "median([1 5 2 8])"),
+    ("stats", "mode([1 2 2 3])"),
+    ("stats", "std([1 2 3 4], 1)"),
+    # --- strings extra ---
+    ("str2", "upper('hola')"),
+    ("str2", "lower('HOLA')"),
+    ("str2", "contains('matlab', 'lab')"),
+    ("str2", "strfind('abracadabra', 'cad')"),
+    ("str2", "strrep('hola hola', 'hola', 'adios')"),
+    ("str2", "sprintf('%d-%d\\n%d', 1, 2, 3)"),
+    ("str2", "num2str(magic(2))"),
+    # --- structs/celdas anidados ---
+    ("struct2", "s.direccion.calle = 'main'; s.direccion.num = 7"),
+    ("struct2", "s.direccion"),
+    ("struct2", "fieldnames(s)"),
+    ("struct2", "isfield(s, 'edad')"),
+    ("struct2", "rmfield(s, 'edad')"),
+    ("struct2", "c2 = {1, {'anidado', [1 2]}}"),
+    ("struct2", "celldisp(c2)"),
+    # --- archivos (persistencia .mat) ---
+    ("files", "save('test_tmp.mat', 'A')"),
+    ("files", "clear A; A"),
+    ("files", "load('test_tmp.mat')"),
+    ("files", "A"),
+    ("files", "delete('test_tmp.mat')"),
+    ("files", "dir('*.m')"),
+    ("files", "type('harvest_dummy.txt')"),
+    # --- figuras extra ---
+    ("fig2", "x = 0:0.1:2*pi; plot(x, sin(x))"),
+    ("fig2", "title('seno'); xlabel('t'); ylabel('y')"),
+    ("fig2", "hold on; plot(x, cos(x))"),
+    ("fig2", "legend('sin','cos')"),
+    ("fig2", "figure(2); bar([1 2 3])"),
+    ("fig2", "subplot(2,1,1); plot(1:5)"),
+    ("fig2", "scatter(1:5, [3 1 4 1 5])"),
+    ("fig2", "close all"),
 ]
 
 
@@ -500,7 +592,8 @@ def main() -> int:
 
     commands = [("cli", args.cmd)] if args.cmd else CURRICULUM
     if args.only:
-        commands = [(s, c) for s, c in CURRICULUM if s == args.only]
+        wanted = set(args.only.split(","))
+        commands = [(s, c) for s, c in CURRICULUM if s in wanted]
         if not commands:
             print(f"seccion desconocida: {args.only}", file=sys.stderr)
             return 2
