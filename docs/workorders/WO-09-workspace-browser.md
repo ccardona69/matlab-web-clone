@@ -6,28 +6,81 @@ El panel Workspace del desktop real muestra las variables del `mvm_engine`
 (nombre, valor, clase, tamaño) y se actualiza tras cada comando — como hace el
 MATLAB real.
 
-## Estado actual
+## Estado actual (DEVIN — implementado, falta verificación en vivo)
 
-- El panel renderiza vacío: los servicios mf.zero / matlabdatamodel responden
-  shapes válidos pero sin contenido (suficiente para boot, no para datos).
-- El motor (`backend/mvm_engine.py`) sí mantiene el workspace real: ver
-  `GET /api/mvm/workspace` y `GET /api/mvm/variable/{name}` ya implementados.
+- **Wire real cosechado**: `ml-mirror/_captures_paneles/wire-workspace-real.jsonl`
+  (363 eventos; el panel aparece poblado en el oráculo). Dump completo de la
+  sesión: `wire-desktop-full.jsonl`.
+- **Implementado** en `backend/e1_bus_services.py` (sección "WO-09"):
+  - `/DesktopWSB` — `WSBStartup`/`EnableWorkspaceListeners` activan el flag
+    `_WSB_ENABLED`; `PauseWorkspaceListeners`/`HideWorkspaceBrowser` lo quitan.
+  - `/WorkspaceBrowser_who` — protocolo de eventTypes (ver tabla abajo).
+  - `/WorkspaceBrowser` — ack silencioso (propertySet, remoteManagerServerReady).
+  - `publish_workspace_variables` — tras cada eval empuja eventType 3 + 2.
+  - `set_workspace_provider` — inyecta `mvm.get_workspace_summary` sin ciclo.
+- **Tests**: `tests/test_bus.py::test_workspace_browser_who_protocol` (verde).
+- **Pendiente de verificar en vivo**: la última prueba mostró el panel sin
+  variables (o layout sin el panel). Posibles causas por revisar:
+  - El JSD puede esperar el push `servicesStarted` o un mensaje en
+    `clientDelivery/client_*` antes de consumir `_who` (WSBReadyService
+    reintentaba la suscripción a `/matlab/WSBService/ready` ×22).
+  - El `partialData` puede necesitar un campo extra (p.ej. `requestId` o el
+    `eventType` correcto en init — ver orden real abajo).
+  - Orden de variables: MATLAB ordena case-insensitive (`a,A,c,ch,flag,s`).
 
-## Apuntes disponibles
+## Protocolo REAL descifrado (wire-workspace-real.jsonl + bundle.361.js)
 
-- `ml-mirror/_captures/wire-20261016-220151.jsonl` — comandos `who`, `whos`,
-  `clear`, asignaciones (salida de Command Window).
-- FALTA COSECHAR: el canal de datos del panel Workspace
-  (`/matlab/matlabdatamodel/*`, `*/datamodel/*`, eventos de cambio de variable).
-  El profesor debe correr con el desktop JSD abierto en el panel Workspace.
+### Cliente → servidor en `/matlab/DesktopWSB`
+`{"type":"WSBStartup"}` → `EnableWorkspaceListeners` → … →
+`PauseWorkspaceListeners`/`ShowWorkspaceBrowser`/`HideWorkspaceBrowser`.
+El servidor no responde nada; solo activa/pausa su empuje de datos.
 
-## Tareas
+### `/matlab/WorkspaceBrowser` (documento)
+- Cliente: `{"type":"propertySet","propertyName":…,"propertyValue":…}` y
+  `/matlab/WorkspaceBrowser/remoteManagerServerReady {}`.
+- Servidor empuja `{"Variables":[…],"type":"SelectedVariablesChanged"}`.
 
-1. Cosechar wire del panel Workspace (sesión JSD: abrir panel, crear vars).
-2. Implementar el servicio datamodel: lista de variables, cambios
-   (create/update/delete) publicados como eventos.
-3. Serialización MDA de valores (shape/type/preview) — reusa el trabajo de
-   `<RICH_OUTPUT>` de WO-08.
+### `/matlab/WorkspaceBrowser_who` — eventTypes
+
+Cliente pide (requests `{"eventType":N,…}`):
+
+| eventType | Significado (del bundle) | Respuesta del server (push en el MISMO canal) |
+|---|---|---|
+| 19 | setClientReady | eventType 1 `{columnCount,rowCount,source:"server"}` |
+| 13 | getSize | eventType 1 |
+| 20 | getTableMetaData | eventType 3 `{metaDataType:"TableModelProperties",properties:[{class:"char"}]}` |
+| 21 | getColumnMetaData | eventType 4 (4 columnas: Name/Value/Size/Class — shape verbatim en `e1_bus_services._WSB_COLUMN_PROPS`) |
+| 22 | getRowMetaData | eventType 5 `properties:[{RowNumber:1…N}]` |
+| 23 | getCellMetaData | eventType 6 `properties:[[{ColumnNumber,RowNumber}×cols]×rows]` |
+| 10 | setViewportRange | eventType 2 (datos del viewport) |
+| 11 | getData | eventType 2 `partialData` |
+| 12 | setData (editar celda) | (no implementado — editar desde el panel) |
+| 14 | getData extendido? | (visto en bundle, no en wire) |
+| 24 | setSortColumn | (no implementado) |
+
+`eventType:2` — `partialData` es un STRING JSON doblemente escapado: matriz
+rows×cols donde cada celda es a su vez un JSON string:
+- col0 (Name): `{"class":"double","editorValue":"a","value":"a"}`
+- col1 (Value): `{"editable":true,"editorValue":"a","isMetaData":false,"value":"5"}`
+  — o `isMetaData:true` + `value:"4×4 double"` para matrices grandes/cell/struct
+  (umbral observado: 3×3 literal, 4×4 metadato → `numel>9`)
+- col2 (Size): `{"editable":false,…,"value":"4×4"}`
+- col3 (Class): `{"editable":false,…,"value":"double"}`
+- `endRow:-1` en request = "todas las filas".
+
+### Tras cada eval
+El servidor empuja `eventType 3` + `eventType 2` (partialData completo) en
+`/matlab/WorkspaceBrowser_who` — implementado en `publish_workspace_variables`.
+
+### Canales suscritos por el cliente (censo real)
+`/matlab/DesktopWSB`, `/matlab/WorkspaceBrowser`, `/matlab/WorkspaceBrowser_who`,
+`/matlab/WorkspaceBrowser/MF0ViewModelManagerClient`,
+`/matlab/WorkspaceBrowserManager/MF0ViewModelManagerClient`,
+`/matlab/viewmodelmulticlient/WorkspaceBrowser{,Manager}`,
+`/matlab/WSBService/ready`, `/matlab/clientDelivery/client_*`,
+`/matlab/VariableEditorMOTW/variableEditorServerInitialized`,
+`/matlab/InspectorPropertyManager`, `/matlab/PropertyInspector`,
+`/matlab/variableviewer/open`, `/matlab/datatools/VariableSnapshotManager`.
 
 ## Verificación
 

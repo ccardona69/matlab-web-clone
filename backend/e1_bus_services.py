@@ -379,6 +379,7 @@ def _handle_feval(
         "data": {"requestID": request_id, "result": [result]},
     })
     fire_prompt(publish, prefix, idle=True)
+    publish_workspace_variables(publish, _GET_VARIABLES())
     return True
 
 
@@ -789,6 +790,272 @@ def _handle_usagesetup(data: dict[str, Any], publish: Publish) -> bool:
     return True
 
 
+# --- WO-09: Workspace Browser (DesktopWSB / WorkspaceBrowser / _who) ---
+#
+# Protocolo descifrado de bundle.361.js + wire real
+# (ml-mirror/_captures_paneles/wire-workspace-real.jsonl):
+# - WorkspaceBrowserMain publica en /matlab/DesktopWSB
+#   {type:"WSBStartup"|"EnableWorkspaceListeners"|"PauseWorkspaceListeners"|…}.
+# - El documento "who" es una tabla remota: el cliente pide con eventTypes
+#   numéricos en /matlab/WorkspaceBrowser_who y el servidor empuja las
+#   respuestas por el MISMO canal (no en el ack Bayeux):
+#     request 21 → push eventType 4 (ColumnModelProperties)
+#     request 22 → push eventType 5 (RowModelProperties)
+#     request 23 → push eventType 6 (CellModelProperties)
+#     request 10 → push eventType 2 (partialData = matriz de celdas JSON)
+#     init 19/13/20/11 → push eventType 1 ({rowCount,columnCount}) + 3
+# - Tras cada eval el servidor re-empuja eventType 3 + 2 con datos frescos.
+_WSB_ENABLED = False
+# Provider del workspace (inyectado por app.py para no importar mvm_engine
+# ni crear el ciclo app → e1_bus_services → app).
+_GET_VARIABLES: Callable[[], list[dict[str, Any]]] = list
+
+
+def set_workspace_provider(fn: Callable[[], list[dict[str, Any]]]) -> None:
+    """Registra la función que devuelve el resumen actual del workspace."""
+    global _GET_VARIABLES
+    _GET_VARIABLES = fn
+
+
+# Columnas verbatim del wire real (Workspace = 4 columnas fijas).
+_WSB_COLUMN_PROPS = [
+    {"ColumnNumber": 1, "ColumnWidth": 75, "DataAttributes": "IconLabelNameColumn",
+     "HeaderName": "Name", "IsSortable": True, "editable": True},
+    {"ColumnNumber": 2, "ColumnWidth": 75, "HeaderName": "Value",
+     "IsSortable": False, "editable": True},
+    {"ColumnNumber": 3, "ColumnWidth": 75, "HeaderName": "Size",
+     "IsSortable": True, "editable": False},
+    {"ColumnNumber": 4, "ColumnWidth": 75, "HeaderName": "Class",
+     "IsSortable": True, "editable": False},
+]
+
+# Numel máximo que MATLAB muestra como literal en la columna Value
+# (wire: 3×3 → "[1,2,3;4,5,6;7,8,10]" isMetaData=false; 4×4 → "4×4 double" true).
+_WSB_LITERAL_NUMEL = 9
+
+
+def _wsb_notify_services_started(publish: Publish) -> None:
+    """Notifica a DefaultWSBProvider que los servicios del WSB están listos."""
+    publish({"channel": "/WorkspaceBrowser", "data": {"type": "servicesStarted"}})
+    publish({"channel": "/WorkspaceBrowser",
+             "data": {"Variables": [], "type": "SelectedVariablesChanged"}})
+
+
+def _handle_desktop_wsb(data: dict[str, Any], publish: Publish) -> bool:
+    """Mensajes fire-and-forget del Workspace Browser del escritorio.
+
+    En el wire real el servidor activa sus listeners internos de variables y
+    notifica servicesStarted / SelectedVariablesChanged en /WorkspaceBrowser.
+    """
+    global _WSB_ENABLED
+    _WSB_ENABLED = True
+    msg_type = data.get("type")
+    if msg_type in ("WSBStartup", "StartupServices", "EnableWorkspaceListeners",
+                    "ShowWorkspaceBrowser"):
+        _wsb_notify_services_started(publish)
+        variables = _GET_VARIABLES()
+        if variables:
+            _wsb_push_full_model(publish, variables, size_changed=True)
+    return True
+
+
+def _wsb_cell_json(payload: dict[str, Any]) -> str:
+    """Cada celda de partialData es un objeto JSON serializado a string."""
+    return json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+
+
+def _wsb_numel(var: dict[str, Any]) -> int:
+    """numel derivado del texto de tamaño ("4×4" → 16, "1×3" → 3)."""
+    parts = var.get("size", "1×1").replace("x", "×").split("×")
+    numel = 1
+    for part in parts:
+        try:
+            numel *= int(part)
+        except ValueError:
+            return 1
+    return numel
+
+
+def _wsb_var_is_metadata(var: dict[str, Any]) -> bool:
+    """True si la columna Value muestra "<size> <class>" en vez del literal.
+
+    Wire real: double 3×3 → literal; double 4×4 / cell / struct → metadato.
+    """
+    cls = var.get("class", "")
+    if cls in ("cell", "struct", "table", "timetable", "function_handle"):
+        return True
+    return _wsb_numel(var) > _WSB_LITERAL_NUMEL
+
+
+def _wsb_var_row(var: dict[str, Any]) -> list[str]:
+    """Fila de 4 celdas JSON (Name | Value | Size | Class) para una variable."""
+    name = var["name"]
+    cls = var.get("class", "double")
+    size = var.get("size", "1×1")
+    if _wsb_var_is_metadata(var):
+        value_cell = {"editable": True, "editorValue": name,
+                      "isMetaData": True, "value": f"{size} {cls}"}
+    else:
+        value_cell = {"editable": True, "editorValue": name,
+                      "isMetaData": False, "value": var.get("preview", "")}
+    return [
+        _wsb_cell_json({"class": cls, "editorValue": name, "value": name}),
+        _wsb_cell_json(value_cell),
+        _wsb_cell_json({"editable": False, "editorValue": name, "value": size}),
+        _wsb_cell_json({"editable": False, "editorValue": name, "value": cls}),
+    ]
+
+
+def _wsb_push(publish: Publish, data: dict[str, Any]) -> None:
+    """Empuja un mensaje del modelo 'who' al canal del documento."""
+    publish({"channel": "/WorkspaceBrowser_who", "data": data})
+
+
+def _wsb_push_full_model(publish: Publish, variables: list[dict[str, Any]],
+                         *, size_changed: bool = False) -> None:
+    """Empuja el modelo completo: tamaño + tabla + columnas + filas + celdas."""
+    rows = len(variables)
+    cols = len(_WSB_COLUMN_PROPS)
+    last_row = rows - 1
+    last_col = cols - 1
+    _wsb_push(publish, {"columnCount": cols, "eventType": 1,
+                        "rowCount": rows, "source": "server"})
+    _wsb_push(publish, {"eventType": 3, "metaDataType": "TableModelProperties",
+                        "properties": [{"class": "char"}], "source": "server"})
+    _wsb_push(publish, {"endColumn": last_col, "eventType": 4,
+                        "fullEndColumn": last_col, "fullStartColumn": 0,
+                        "metaDataType": "ColumnModelProperties",
+                        "properties": _WSB_COLUMN_PROPS,
+                        "source": "server", "startColumn": 0})
+    if rows > 0:
+        _wsb_push(publish, {"endRow": last_row, "eventType": 5,
+                            "fullEndRow": last_row, "fullStartRow": 0,
+                            "metaDataType": "RowModelProperties",
+                            "properties": [{"RowNumber": i + 1} for i in range(rows)],
+                            "source": "server", "startRow": 0})
+        cell_props = [
+            [{"ColumnNumber": c + 1, "RowNumber": r + 1} for c in range(cols)]
+            for r in range(rows)
+        ]
+        _wsb_push(publish, {"endColumn": last_col, "endRow": last_row, "eventType": 6,
+                            "fullEndColumn": last_col, "fullEndRow": last_row,
+                            "fullStartColumn": 0, "fullStartRow": 0,
+                            "metaDataType": "CellModelProperties",
+                            "properties": cell_props,
+                            "source": "server", "startColumn": 0, "startRow": 0})
+    _wsb_push_data(publish, variables, 0, last_row, 0, last_col,
+                   size_changed=size_changed)
+
+
+def _wsb_push_data(publish: Publish, variables: list[dict[str, Any]],
+                   start_row: int, end_row: int,
+                   start_col: int, end_col: int,
+                   *, size_changed: bool = False) -> None:
+    """Empuja eventType 2: partialData con la matriz de celdas del rango."""
+    rows = len(variables)
+    cols = len(_WSB_COLUMN_PROPS)
+    end_col = cols - 1 if end_col < 0 else min(end_col, cols - 1)
+    if rows == 0:
+        end_row = -1
+        grid: list[Any] = []
+    else:
+        # endRow/endColumn -1 significan "hasta el final" (wire real).
+        end_row = rows - 1 if end_row < 0 else min(end_row, rows - 1)
+        grid = [_wsb_var_row(v)[start_col:end_col + 1]
+                for v in variables[start_row:end_row + 1]]
+    row_count = len(grid)
+    col_count = (end_col - start_col + 1) if end_col >= start_col else cols
+    # En PubSubDataProvider._adjustArraysFromServerEncode (bundle.361.js),
+    # cuando H==1 y W>1 MATLAB serializa la fila 1×4 como array 1D de strings JSON.
+    encoded_grid = grid[0] if len(grid) == 1 else grid
+    _wsb_push(publish, {
+        "columnCount": col_count, "endColumn": end_col, "endRow": end_row,
+        "eventType": 2, "fullEndColumn": cols - 1, "fullEndRow": rows - 1,
+        "fullStartColumn": 0, "fullStartRow": 0,
+        "partialData": json.dumps(encoded_grid, separators=(",", ":"), ensure_ascii=False),
+        "rowCount": row_count, "sizeChanged": size_changed,
+        "source": "server", "startColumn": start_col, "startRow": start_row,
+    })
+
+
+def _handle_workspace_browser_who(data: dict[str, Any], publish: Publish) -> bool:
+    """Requests del documento 'who': eventTypes numéricos del protocolo remoto."""
+    global _WSB_ENABLED
+    _WSB_ENABLED = True
+    event_type = data.get("eventType")
+    variables = _GET_VARIABLES()
+    rows = len(variables)
+    cols = len(_WSB_COLUMN_PROPS)
+    if event_type in (19, 13):
+        # setClientReady / getSize → el servidor anuncia el tamaño de la tabla.
+        _wsb_push(publish, {"columnCount": cols, "eventType": 1,
+                            "rowCount": rows, "source": "server"})
+    elif event_type == 20:
+        # getTableMetaData → propiedades de tabla.
+        _wsb_push(publish, {"eventType": 3,
+                            "metaDataType": "TableModelProperties",
+                            "properties": [{"class": "char"}],
+                            "source": "server"})
+    elif event_type == 21:
+        _wsb_push(publish, {"endColumn": cols - 1, "eventType": 4,
+                            "fullEndColumn": cols - 1, "fullStartColumn": 0,
+                            "metaDataType": "ColumnModelProperties",
+                            "properties": _WSB_COLUMN_PROPS,
+                            "source": "server", "startColumn": 0})
+    elif event_type == 22:
+        _wsb_push(publish, {"endRow": rows - 1, "eventType": 5,
+                            "fullEndRow": rows - 1, "fullStartRow": 0,
+                            "metaDataType": "RowModelProperties",
+                            "properties": [{"RowNumber": i + 1} for i in range(rows)],
+                            "source": "server", "startRow": 0})
+    elif event_type == 23:
+        cell_props = [
+            [{"ColumnNumber": c + 1, "RowNumber": r + 1} for c in range(cols)]
+            for r in range(rows)
+        ]
+        _wsb_push(publish, {"endColumn": cols - 1, "endRow": rows - 1,
+                            "eventType": 6,
+                            "fullEndColumn": cols - 1, "fullEndRow": rows - 1,
+                            "fullStartColumn": 0, "fullStartRow": 0,
+                            "metaDataType": "CellModelProperties",
+                            "properties": cell_props,
+                            "source": "server",
+                            "startColumn": 0, "startRow": 0})
+    elif event_type in (10, 11):
+        # 10 = setViewportRange, 11 = getData: el server empuja el partialData
+        # del rango pedido (eventType 2).
+        _wsb_push_data(publish, variables,
+                       int(data.get("startRow", 0)),
+                       int(data.get("endRow", rows - 1)),
+                       int(data.get("startColumn", 0)),
+                       int(data.get("endColumn", cols - 1)))
+    return True
+
+
+def _handle_workspace_browser(data: dict[str, Any], publish: Publish) -> bool:
+    """Mensajes cliente→servidor del panel (propertySet, OpenVariable…).
+
+    Wire real: propertySet/recurse se aceptan sin respuesta; el servidor
+    solo publica eventos de selección (SelectedVariablesChanged).
+    """
+    return True
+
+
+def publish_workspace_variables(publish: Publish,
+                                variables: list[dict[str, Any]]) -> None:
+    """Re-empuja el modelo 'who' tras cada eval (wire real: eventTypes 1..6 + 2).
+
+    Cuando el workspace cambia (especialmente de 0 a N variables), el servidor
+    reenvía tamaño, metadatos de tabla/columnas/filas/celdas y el partialData
+    completo con sizeChanged=True.
+    """
+    if not _WSB_ENABLED:
+        return
+    _wsb_push_full_model(publish, variables, size_changed=True)
+    publish({"channel": "/WorkspaceBrowser",
+             "data": {"Variables": [], "type": "SelectedVariablesChanged"}})
+
+
 # Canal de respuesta por operación regfwk (visto en las suscripciones del
 # shell real: suscribe todos los canales <op>/<clientId> por adelantado).
 _REGFWK_RESPONSE_NAMES = {
@@ -864,6 +1131,20 @@ def handle_service(
         return _handle_event_notification(channel, data, publish)
     if channel == "/UsageSetup":
         return _handle_usagesetup(data, publish)
+    # Workspace Browser (WO-09): mensajería del panel + servicio de readiness.
+    if channel == "/DesktopWSB":
+        return _handle_desktop_wsb(data, publish)
+    if channel == "/WorkspaceBrowser_who":
+        return _handle_workspace_browser_who(data, publish)
+    if channel == "/WorkspaceBrowser":
+        return _handle_workspace_browser(data, publish)
+    if channel == "/WorkspaceBrowser/remoteManagerServerReady":
+        _wsb_notify_services_started(publish)
+        return True
+    # Canales auxiliares del WSB (acciones, context menu, updates) y servicios
+    # peer del documento 'who': ack silencioso para no provocar reintentos.
+    if channel.startswith(("/WSB", "/WorkspaceBrowser", "/ML/WorkspaceBrowser")):
+        return True
     # Clipboard service: requestAvailableDataFlavors → sendAvailableDataFlavors/<uid>
     if channel == "/v2/clipboardservice/requestAvailableDataFlavors":
         publish({

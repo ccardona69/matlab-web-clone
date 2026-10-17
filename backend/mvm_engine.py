@@ -763,8 +763,15 @@ class MatlabVirtualMachine:
 
     def get_workspace_summary(self) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
-        for name in sorted(self.workspace.keys()):
+        for name in sorted(self.workspace.keys(), key=lambda n: (n.lower(), n.swapcase())):
             val = self.workspace[name]
+            preview = value_summary(val)
+            if isinstance(val, np.ndarray) and not is_char(val):
+                if val.dtype == bool and val.size == 1:
+                    preview = "1" if bool(val.flat[0]) else "0"
+                elif 1 < val.size <= 9 and not np.iscomplexobj(val):
+                    _, cells, _ = _numeric_cells(as2d(val), FormatState())
+                    preview = "[" + ";".join(",".join(c.strip() for c in r) for r in cells) + "]"
             item: dict[str, Any] = {
                 "name": name,
                 "class": class_of(val),
@@ -772,7 +779,7 @@ class MatlabVirtualMachine:
                 "bytes": bytes_of(val),
                 "min": _summary_stat(val, np.min),
                 "max": _summary_stat(val, np.max),
-                "preview": value_summary(val),
+                "preview": preview,
             }
             if isinstance(val, np.ndarray) and np.iscomplexobj(val):
                 item["complex"] = True

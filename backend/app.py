@@ -22,6 +22,8 @@ from pydantic import BaseModel, Field
 from backend.e1_bus_services import fire_prompt as e1_fire_prompt
 from backend.e1_bus_services import handle_service as e1_handle_service
 from backend.e1_bus_services import publish_eval_output as e1_publish_eval_output
+from backend.e1_bus_services import publish_workspace_variables as e1_publish_ws_vars
+from backend.e1_bus_services import set_workspace_provider as e1_set_ws_provider
 from backend.e1_bus_services import replay_initial_events as e1_replay_events
 from backend.e1_connector import oracle_middleware as e1_oracle_middleware
 from backend.e1_messageservice import router as e1_messageservice_router
@@ -60,6 +62,8 @@ app.include_router(local_assets_router)
 app.include_router(mvm_console_router)
 
 mvm = MatlabVirtualMachine()
+# WO-09: el documento 'who' del Workspace Browser consulta el workspace real.
+e1_set_ws_provider(mvm.get_workspace_summary)
 _bus_clients: dict[str, dict[str, Any]] = {}
 _bus_websockets: set[WebSocket] = set()
 
@@ -94,6 +98,8 @@ def _command_result(command: str, request_id: str | None = None, prefix: str = "
         response["error"] = result["error_data"]
     _publish_bus_event({"channel": prefix + "/eval/response", "data": response})
     e1_fire_prompt(_publish_bus_event, prefix, idle=True)
+    # WO-09: tras cada eval el Workspace Browser espera la sync de variables.
+    e1_publish_ws_vars(_publish_bus_event, mvm.get_workspace_summary())
     return response
 
 
@@ -205,6 +211,11 @@ def _bayeux_handle(message: dict[str, Any]) -> list[dict[str, Any]]:
                 m = re.match(r"^/matlab(/mvm/[^/]+)/event/fireEvent$", subscription)
                 if m:
                     e1_replay_events(_publish_bus_event, m.group(1))
+            elif subscription == "/matlab/WSBService/ready":
+                _publish_bus_event({"channel": "/WSBService/ready", "data": {"type": "ready"}}, client_id)
+            elif subscription == "/matlab/WorkspaceBrowser":
+                _publish_bus_event({"channel": "/WorkspaceBrowser", "data": {"type": "servicesStarted"}}, client_id)
+                _publish_bus_event({"channel": "/WorkspaceBrowser", "data": {"Variables": [], "type": "SelectedVariablesChanged"}}, client_id)
         else:
             state["subscriptions"].discard(subscription)
         return [{**ack, "clientId": client_id, "subscription": subscription}]

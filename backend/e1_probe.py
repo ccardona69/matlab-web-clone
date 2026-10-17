@@ -32,7 +32,9 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 
 from backend.local_assets import _resolve_under_root
 
-_LOG: deque[dict[str, Any]] = deque(maxlen=500)
+# Buffer amplio: el boot del desktop real genera >500 requests y las cosechas
+# de paneles (Workspace/Editor/figuras) rotaban fuera antes de poder volcarlas.
+_LOG: deque[dict[str, Any]] = deque(maxlen=20000)
 _CHANNELS: dict[str, dict[str, Any]] = {}
 _client_seq = itertools.count(1)
 

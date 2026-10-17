@@ -210,6 +210,89 @@ def test_real_shell_wire_sequence_feval_sinks_and_services(client: TestClient) -
     assert shortcut_replies[0]["data"]["requestId"] == 27
 
 
+def test_workspace_browser_who_protocol(client: TestClient) -> None:
+    """WO-09: el documento 'who' recibe el modelo mf de variables por
+    eventTypes (wire real: 1 tamaño, 3/4/5/6 props, 2 partialData)."""
+    import json as _json
+
+    handshake = client.post(
+        "/matlab/messageservice/async",
+        json={"channel": "/meta/handshake", "version": "1.0", "supportedConnectionTypes": ["long-polling"], "id": "1"},
+    ).json()[0]
+    cid = handshake["clientId"]
+
+    ack = client.post(
+        "/cometd",
+        json={"channel": "/meta/subscribe", "clientId": cid,
+              "subscription": "/matlab/WorkspaceBrowser_who", "id": "2"},
+    ).json()[0]
+    assert ack["successful"] is True
+
+    def send(channel: str, data: dict, msg_id: str) -> list[dict]:
+        client.post("/cometd", json={"channel": channel, "clientId": cid,
+                                     "id": msg_id, "data": data})
+        connect = client.post(
+            "/cometd",
+            json={"channel": "/meta/connect", "clientId": cid, "id": msg_id + "c"},
+        ).json()
+        return [m for m in connect if m.get("channel") == "/matlab/WorkspaceBrowser_who"]
+
+    client.post("/cometd", json={"channel": "/matlab/DesktopWSB", "clientId": cid,
+                                 "id": "3", "data": {"type": "WSBStartup"}})
+    # Crear variables: escalar (literal) y matriz 4x4 (metadato "4×4 double").
+    mvm.workspace["a"] = 5
+    mvm.workspace["A"] = __import__("numpy").array([[1, 2, 3, 4]] * 4)
+
+    pushes = send("/matlab/WorkspaceBrowser_who", {"eventType": 19}, "4")
+    types = [m["data"]["eventType"] for m in pushes]
+    assert 1 in types
+
+    pushes = send("/matlab/WorkspaceBrowser_who", {"eventType": 20}, "4b")
+    types = [m["data"]["eventType"] for m in pushes]
+    assert 3 in types
+
+    pushes = send("/matlab/WorkspaceBrowser_who",
+                  {"eventType": 21, "startColumn": 0, "endColumn": 3}, "5")
+    cols = next(m for m in pushes if m["data"]["eventType"] == 4)
+    assert [p["HeaderName"] for p in cols["data"]["properties"]] == [
+        "Name", "Value", "Size", "Class"]
+
+    pushes = send("/matlab/WorkspaceBrowser_who",
+                  {"eventType": 11, "startRow": 0, "endRow": -1,
+                   "startColumn": 0, "endColumn": 3}, "6")
+    data_msg = next(m for m in pushes if m["data"]["eventType"] == 2)
+    grid = _json.loads(data_msg["data"]["partialData"])
+    assert data_msg["data"]["columnCount"] == 4
+    assert data_msg["data"]["rowCount"] == 2
+    names = [_json.loads(cell)["value"] for cell in (row[0] for row in grid)]
+    assert set(names) == {"a", "A"}
+    row_a = next(r for r in grid if _json.loads(r[0])["value"] == "a")
+    assert _json.loads(row_a[1])["value"] == "5"
+    row_A = next(r for r in grid if _json.loads(r[0])["value"] == "A")
+    assert _json.loads(row_A[1])["isMetaData"] is True
+    assert "4×4" in _json.loads(row_A[1])["value"]
+
+    # Tras un eval el servidor re-empuja los datos actualizados.
+    client.post(
+        "/cometd",
+        json={"channel": "/matlab/mvm/user-mvm/eval/request", "clientId": cid,
+              "id": "7",
+              "data": {"command": "b = 42", "requestID": "EV_WS",
+                       "isUserEval": True}},
+    )
+    connect = client.post(
+        "/cometd",
+        json={"channel": "/meta/connect", "clientId": cid, "id": "8"},
+    ).json()
+    data_msgs = [m for m in connect
+                 if m.get("channel") == "/matlab/WorkspaceBrowser_who"
+                 and (m.get("data") or {}).get("eventType") == 2]
+    assert data_msgs, "no llegó partialData tras eval"
+    grid = _json.loads(data_msgs[-1]["data"]["partialData"])
+    names = {_json.loads(cell)["value"] for cell in (row[0] for row in grid)}
+    assert "b" in names
+
+
 def test_websocket_emits_status_output_and_command_response(client: TestClient) -> None:
     request_id = str(uuid4())
     with client.websocket_connect("/ws/mvm") as websocket:
