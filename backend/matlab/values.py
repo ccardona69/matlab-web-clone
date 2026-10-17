@@ -120,6 +120,21 @@ class MFunc:
         return self.text if self.body is not None else f"@{self.name}"
 
 
+class MObject:
+    """Objeto escalar opaco (datetime, duration) con texto de presentación fijo."""
+
+    __slots__ = ("cls", "text", "payload")
+
+    def __init__(self, cls: str, text: str, payload: Any = None) -> None:
+        self.cls = cls
+        self.text = text
+        self.payload = payload
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        return (1, 1)
+
+
 # ---------- constructores ----------
 
 def empty_double() -> np.ndarray:
@@ -152,7 +167,7 @@ def as2d(a: np.ndarray) -> np.ndarray:
 
 def from_python(v: Any) -> Any:
     """Convierte un resultado Python/numpy al modelo de valores MATLAB."""
-    if isinstance(v, (MString, MCell, MStruct, MFunc, MMap, MDictionary)):
+    if isinstance(v, (MString, MCell, MStruct, MFunc, MMap, MDictionary, MObject)):
         return v
     if isinstance(v, np.ndarray):
         if v.dtype == object:
@@ -199,6 +214,8 @@ def class_of(v: Any) -> str:
         return "struct"
     if isinstance(v, MFunc):
         return "function_handle"
+    if isinstance(v, MObject):
+        return v.cls
     return type(v).__name__
 
 

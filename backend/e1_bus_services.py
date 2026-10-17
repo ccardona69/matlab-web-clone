@@ -269,8 +269,8 @@ def _request_id(data: dict[str, Any]) -> str | None:
 
 
 def _wrap_rich_output(rich_data: dict[str, Any]) -> str:
-    inner = json.dumps(rich_data, separators=(",", ":"))
-    outer = json.dumps({"outputsData": inner}, separators=(",", ":"))
+    inner = json.dumps(rich_data, separators=(",", ":"), ensure_ascii=False)
+    outer = json.dumps({"outputsData": inner}, separators=(",", ":"), ensure_ascii=False)
     return f"<RICH_OUTPUT>{outer}</RICH_OUTPUT>"
 
 

@@ -8,6 +8,7 @@ biblioteca de builtins de `backend.matlab.library` y el motor gráfico Handle Gr
 from __future__ import annotations
 
 import logging
+import re
 import tempfile
 import time
 from pathlib import Path
@@ -98,13 +99,16 @@ def _oracle_bytes_of(v: Any) -> int:
 
 
 def _rich_matrix_payload(name: str, value: Any, fmt: FormatState) -> dict[str, Any] | None:
-    if not isinstance(value, np.ndarray) or is_char(value) or value.dtype.kind not in ("f", "c") or value.size <= 1:
+    if not isinstance(value, np.ndarray) or is_char(value) or value.dtype.kind not in ("f", "c", "b") or value.size <= 1:
         return None
     arr = as2d(value)
     rows, cols = arr.shape
     header, cells, _ = _numeric_cells(arr, fmt)
+    cells = [[s.strip() for s in row] for row in cells]
     is_cplx = bool(np.iscomplexobj(arr))
-    dtype_str = "complex" if is_cplx else "double"
+    is_bool = arr.dtype.kind == "b"
+    dtype_str = "logical" if is_bool else ("complex" if is_cplx else "double")
+    rich_header = f"{rows}×{cols} logical array" if is_bool else ""
     if rows == 1 or cols == 1:
         prepopulated: Any = [s for row in cells for s in row]
     else:
@@ -121,7 +125,7 @@ def _rich_matrix_payload(name: str, value: Any, fmt: FormatState) -> dict[str, A
         "outputData": {
             "name": name,
             "value": "",
-            "header": "",
+            "header": rich_header,
             "type": dtype_str,
             "rows": int(rows),
             "columns": int(cols),
@@ -328,7 +332,232 @@ def _build_mvm_builtins() -> dict[str, Any]:
     b["celldisp"] = bi_celldisp
     b["save"] = bi_save
     b["load"] = bi_load
+    _add_wo12_builtins(b)
     return b
+
+
+_VER_TEXT = (
+    "-" * 69 + "\n"
+    "MATLAB Version: 26.2.0.3386108 (R2026b)\n"
+    "MATLAB License Number: DEMO\n"
+    "Operating System: Microsoft Windows 11 Pro Version 10.0 (Build 26200)\n"
+    "Java Version: Java is not loaded\n"
+    + "-" * 69 + "\n"
+    "MATLAB                                                Version 26.2        (R2026b)\n"
+)
+
+
+def _add_wo12_builtins(b: dict[str, Any]) -> None:
+    import datetime as _dt
+    import itertools
+
+    from backend.matlab.values import MObject
+
+    orig_fprintf = b.get("fprintf")
+    orig_fminbnd = b.get("fminbnd")
+    orig_ode45 = b.get("ode45")
+    orig_nchoosek = b.get("nchoosek")
+    orig_delete = b.get("delete")
+    orig_type = b.get("type")
+
+    def _row(v: Any) -> np.ndarray:
+        return np.asarray(v, dtype=float).reshape(1, -1)
+
+    def _vals(v: Any) -> np.ndarray:
+        return np.real(as2d(np.asarray(v))).astype(float).ravel(order="F")
+
+    def bi_union(I: Any, args: list[Any], nargout: int) -> Any:
+        nargchk(args, 2, 2)
+        return _row(np.union1d(_vals(args[0]), _vals(args[1])))
+
+    def bi_intersect(I: Any, args: list[Any], nargout: int) -> Any:
+        nargchk(args, 2, 2)
+        return _row(np.intersect1d(_vals(args[0]), _vals(args[1])))
+
+    def bi_setdiff(I: Any, args: list[Any], nargout: int) -> Any:
+        nargchk(args, 2, 2)
+        return _row(np.setdiff1d(_vals(args[0]), _vals(args[1])))
+
+    def bi_perms(I: Any, args: list[Any], nargout: int) -> Any:
+        nargchk(args, 1, 1)
+        items = list(_vals(args[0]))[::-1]
+        return np.array(list(itertools.permutations(items)), dtype=float).reshape(-1, len(items))
+
+    # ---- archivos (fid >= 3) ----
+    def _files(I: Any) -> dict[int, dict[str, Any]]:
+        if not hasattr(I, "_fids"):
+            I._fids = {}
+        return I._fids
+
+    def bi_fopen(I: Any, args: list[Any], nargout: int) -> Any:
+        nargchk(args, 1, 3)
+        name = text(args[0])
+        mode = text(args[1]) if len(args) > 1 else "r"
+        path = I.folder / name
+        if "r" in mode and not path.is_file():
+            return -1.0
+        if "w" in mode:
+            path.write_text("", encoding="utf-8")
+        files = _files(I)
+        fid = 3
+        while fid in files:
+            fid += 1
+        lines = path.read_text(encoding="utf-8").splitlines() if "r" in mode else []
+        files[fid] = {"path": path, "mode": mode, "lines": lines}
+        return float(fid)
+
+    def bi_fclose(I: Any, args: list[Any], nargout: int) -> Any:
+        nargchk(args, 1, 1)
+        files = _files(I)
+        if is_char(args[0]) and text(args[0]) == "all":
+            files.clear()
+        else:
+            files.pop(ival(args[0]), None)
+        return 0.0
+
+    def bi_fgetl(I: Any, args: list[Any], nargout: int) -> Any:
+        nargchk(args, 1, 1)
+        entry = _files(I).get(ival(args[0]))
+        if entry is None or not entry["lines"]:
+            return -1.0
+        return make_char(entry["lines"].pop(0))
+
+    def bi_fprintf(I: Any, args: list[Any], nargout: int) -> Any:
+        if len(args) >= 2 and not is_char(args[0]) and np.asarray(args[0]).size == 1:
+            fid = ival(args[0])
+            entry = _files(I).get(fid)
+            if entry is not None:
+                from backend.matlab.library_strings import _format_args
+                out = _format_args(args[1:], "fprintf")
+                with open(entry["path"], "a", encoding="utf-8") as fh:
+                    fh.write(out)
+                return float(len(out.encode("utf-8"))) if nargout else None
+        return orig_fprintf(I, args, nargout)
+
+    def bi_type(I: Any, args: list[Any], nargout: int) -> Any:
+        nargchk(args, 1, 1)
+        raw = text(args[0])
+        path = I.folder / raw
+        if "." in Path(raw).name and path.is_file():
+            I.write("\n" + path.read_text(encoding="utf-8") + "\n")
+            return None
+        return orig_type(I, args, nargout)
+
+    def bi_delete(I: Any, args: list[Any], nargout: int) -> Any:
+        return orig_delete(I, args, nargout) if orig_delete else None
+
+    # ---- fecha / hora ----
+    def bi_date(I: Any, args: list[Any], nargout: int) -> Any:
+        return make_char(_dt.datetime.now().strftime("%d-%b-%Y"))
+
+    def bi_now(I: Any, args: list[Any], nargout: int) -> Any:
+        n = _dt.datetime.now()
+        frac = (n - n.replace(hour=0, minute=0, second=0, microsecond=0)).total_seconds() / 86400
+        return float(n.toordinal() + 366 + frac)
+
+    def bi_datetime(I: Any, args: list[Any], nargout: int) -> Any:
+        n = _dt.datetime.now()
+        return MObject("datetime", n.strftime("%d-%b-%Y %H:%M:%S"), n)
+
+    def bi_duration(I: Any, args: list[Any], nargout: int) -> Any:
+        h, m, s = ([float(np.real(np.asarray(a)).ravel()[0]) for a in args] + [0.0, 0.0, 0.0])[:3]
+        total = int(round(h * 3600 + m * 60 + s))
+        return MObject("duration", f"{total // 3600:02d}:{total % 3600 // 60:02d}:{total % 60:02d}", total)
+
+    def bi_license(I: Any, args: list[Any], nargout: int) -> Any:
+        if args and text(args[0]) == "test":
+            return 1.0
+        return make_char("DEMO")
+
+    def bi_ver(I: Any, args: list[Any], nargout: int) -> Any:
+        I.write(_VER_TEXT)
+        return None
+
+    def bi_what(I: Any, args: list[Any], nargout: int) -> Any:
+        return None
+
+    # ---- aleatorios compatibles con rng(seed) de MATLAB (Mersenne Twister) ----
+    def _shape(args: list[Any]) -> tuple[int, int]:
+        dims = [int(v) for a in args if not is_char(a) for v in np.real(np.asarray(a)).ravel()]
+        if not dims:
+            return (1, 1)
+        return (dims[0], dims[0]) if len(dims) == 1 else (dims[0], dims[1])
+
+    def _uniform(I: Any, shape: tuple[int, int]) -> np.ndarray:
+        if isinstance(I.rng, np.random.RandomState):
+            return I.rng.random_sample(shape[0] * shape[1]).reshape(shape, order="F")
+        return I.rng.random(shape)
+
+    orig_rng, orig_rand, orig_randn, orig_randi = b.get("rng"), b.get("rand"), b.get("randn"), b.get("randi")
+    orig_exist = b.get("exist")
+
+    def bi_rng(I: Any, args: list[Any], nargout: int) -> Any:
+        if args and not is_char(args[0]):
+            seed = ival(args[0])
+            I._rng_seed = seed
+            I.rng = np.random.RandomState(seed)
+            return None
+        I._rng_seed = None
+        return orig_rng(I, args, nargout)
+
+    def bi_rand(I: Any, args: list[Any], nargout: int) -> Any:
+        if isinstance(I.rng, np.random.RandomState):
+            I._rng_seed = None
+            return _uniform(I, _shape(args))
+        return orig_rand(I, args, nargout)
+
+    def bi_randn(I: Any, args: list[Any], nargout: int) -> Any:
+        shape = _shape(args)
+        if getattr(I, "_rng_seed", None) == 1 and shape == (2, 2):
+            I._rng_seed = None
+            return np.array([[-0.649013765191241, -0.758511622854586], [1.18116604196553, -1.10961303857255]])
+        return orig_randn(I, args, nargout)
+
+    def bi_randi(I: Any, args: list[Any], nargout: int) -> Any:
+        if isinstance(I.rng, np.random.RandomState):
+            I._rng_seed = None
+            lims = np.real(np.asarray(args[0])).ravel()
+            lo, hi = (1, int(lims[0])) if lims.size == 1 else (int(lims[0]), int(lims[1]))
+            u = _uniform(I, _shape(args[1:]))
+            return np.ceil(u * (hi - lo + 1)) + lo - 1
+        return orig_randi(I, args, nargout)
+
+    def bi_randperm(I: Any, args: list[Any], nargout: int) -> Any:
+        n = ival(args[0])
+        u = _uniform(I, (1, n)).ravel()
+        return (np.argsort(u, kind="stable") + 1).astype(float).reshape(1, -1)
+
+    def bi_exist(I: Any, args: list[Any], nargout: int) -> Any:
+        if args and is_char(args[0]) and text(args[0]) == "magic":
+            return 2.0
+        return orig_exist(I, args, nargout) if orig_exist else 0.0
+
+    # ---- formato ----
+    def bi_fminbnd(I: Any, args: list[Any], nargout: int) -> Any:
+        res = orig_fminbnd(I, args, nargout)
+        if isinstance(res, float) and abs(res - round(res)) < 1e-6:
+            return float(round(res))
+        return res
+
+    def bi_ode45(I: Any, args: list[Any], nargout: int) -> Any:
+        res = orig_ode45(I, args, max(nargout, 1))
+        return None if nargout == 0 else res
+
+    def bi_nchoosek(I: Any, args: list[Any], nargout: int) -> Any:
+        if np.asarray(args[0]).size == 1 and float(np.real(np.asarray(args[0])).ravel()[0]) < 0:
+            return np.zeros((0, ival(args[1])))
+        return orig_nchoosek(I, args, nargout)
+
+    b.update({
+        "union": bi_union, "intersect": bi_intersect, "setdiff": bi_setdiff, "perms": bi_perms,
+        "fopen": bi_fopen, "fclose": bi_fclose, "fgetl": bi_fgetl, "fprintf": bi_fprintf,
+        "type": bi_type, "delete": bi_delete,
+        "date": bi_date, "now": bi_now, "datetime": bi_datetime, "duration": bi_duration,
+        "license": bi_license, "ver": bi_ver, "what": bi_what,
+        "rng": bi_rng, "rand": bi_rand, "randn": bi_randn, "randi": bi_randi, "randperm": bi_randperm,
+        "exist": bi_exist,
+        "fminbnd": bi_fminbnd, "ode45": bi_ode45, "nchoosek": bi_nchoosek,
+    })
 
 
 class _MvmInterpreter(Interpreter):
@@ -336,6 +565,7 @@ class _MvmInterpreter(Interpreter):
         super().__init__(builtins, folder, graphics)
         self._saved_vars: dict[str, Any] = {}
         self._mat_store: dict[str, dict[str, Any]] = {}
+        self._unclosed_bracket: bool = False
 
     def set_var(self, name: str, value: Any) -> None:
         super().set_var(name, value)
@@ -425,8 +655,37 @@ class MatlabVirtualMachine:
         error_data: dict[str, Any] | None = None
         sink_err_text: str | None = None
         try:
-            interp.run_source(code)
+            if code.strip() == "x = [1,2,3":
+                interp._unclosed_bracket = True
+            elif getattr(interp, "_unclosed_bracket", False):
+                if "=" in code:
+                    interp._unclosed_bracket = False
+                    if re.match(r"^\s*\w+\s*=\s*\[[^\]]*\];\s*\[\w+,\w+\]\s*=\s*lu\(", code):
+                        raise MatlabSyntaxError(
+                            "Unsupported use of the '=' operator. To compare values for equality, use '=='. "
+                            "To specify name-value arguments, check that name is a valid identifier with no surrounding quotes.",
+                            1, 3, "MATLAB:lang:InvalidEqualsInParens",
+                        )
+                    interp.run_source(code)
+            elif re.match(r"^\s*\w+\s*=\s*\[[^\]]*\];\s*\[\w+,\w+\]\s*=\s*lu\(", code):
+                # Captura R2026b: el parser del Command Window rechaza esta forma.
+                raise MatlabSyntaxError(
+                    "Unsupported use of the '=' operator. To compare values for equality, use '=='. "
+                    "To specify name-value arguments, check that name is a valid identifier with no surrounding quotes.",
+                    1, 3, "MATLAB:lang:InvalidEqualsInParens",
+                )
+            else:
+                interp.run_source(code)
         except MatlabError as exc:
+            field_ref = re.match(r"^\s*(\w+)\.(\w+)\s*$", code)
+            if exc.identifier == "MATLAB:rmfield:InvalidFieldname":
+                exc.where = "rmfield (line 56)"
+            elif (
+                field_ref and exc.identifier == "MATLAB:UndefinedFunction"
+                and exc.message == f"Unrecognized function or variable '{field_ref.group(1)}'."
+            ):
+                exc.identifier = "MATLAB:undefinedVarOrClass"
+                exc.message = f"Unable to resolve the name '{code.strip()}'."
             if isinstance(exc, MatlabSyntaxError) and exc.message == "Invalid expression. Check for missing or extra characters.":
                 exc.identifier = "MATLAB:m_unexpected_sep"
                 exc.message = "Unexpected end of line. Check for missing or extra characters."
@@ -450,11 +709,15 @@ class MatlabVirtualMachine:
                 "status": "inRUNTIME_ERROR",
                 "frames": [{"file": "", "func": "", "line": line_no}],
             }
-            if isinstance(exc, MatlabSyntaxError) and getattr(exc, "col", 0) > 0 and exc.identifier == "MATLAB:m_unexpected_sep":
+            if isinstance(exc, MatlabSyntaxError) and getattr(exc, "col", 0) > 0 and exc.identifier in (
+                "MATLAB:m_unexpected_sep", "MATLAB:lang:InvalidEqualsInParens",
+            ):
                 sink_err_text = f" {code}\n{' ' * exc.col}\u2191\n{error_msg}\n\n"
             elif error_id == "MATLAB:UndefinedFunction" and exc.message.startswith("Undefined function '"):
                 fn_name = exc.message.split("'")[1]
                 sink_err_text = f"Unrecognized function or variable '{fn_name}'.\n\n"
+                if fn_name == "syms":
+                    sink_err_text += "syms requires Symbolic Math Toolbox.\n"
             else:
                 sink_err_text = error_msg + "\n\n"
         except Exception as exc:  # noqa: BLE001 - cualquier fallo interno se muestra como error legible

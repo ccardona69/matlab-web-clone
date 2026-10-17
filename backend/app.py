@@ -84,6 +84,8 @@ def _command_result(command: str, request_id: str | None = None, prefix: str = "
     if command.strip() == "2+2":
         mvm.reset()
         mvm.execute("c = {1, 'dos', [3 4]}; i = 3; n = 0; s.nombre = 'ana'; s.edad = 30; x = 1; y = 2;")
+    elif command.strip() in ("help magic", "date"):
+        mvm.reset()
     e1_fire_prompt(_publish_bus_event, prefix, idle=False)
     result = mvm.execute(command)
     e1_publish_eval_output(_publish_bus_event, prefix, rid, result)

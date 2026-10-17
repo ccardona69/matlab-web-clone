@@ -23,7 +23,7 @@ from typing import Any
 import numpy as np
 
 from backend.matlab.values import (
-    MCell, MFunc, MMap, MString, MStruct, as2d, char_to_str, class_of, is_char, shape_of,
+    MCell, MFunc, MMap, MObject, MString, MStruct, as2d, char_to_str, class_of, is_char, shape_of,
 )
 
 
@@ -100,7 +100,7 @@ def _rat_cell(x: float) -> str:
 
 def _bank_cell(v: float) -> str:
     """Celda de `format bank`: 2 decimales con ancho mínimo 14 (o len+1 si es más larga)."""
-    s = _special(v) or f"{v:.2f}"
+    s = _special(v) or ("0" if v == 0 else f"{v:.2f}")
     return s.rjust(14) if len(s) < 14 else " " + s
 
 
@@ -302,6 +302,8 @@ def value_summary(v: Any, fmt: FormatState | None = None, in_cell: bool = False)
         return f"{r}×{c} struct"
     if isinstance(v, MFunc):
         return v.display_text()
+    if isinstance(v, MObject):
+        return v.text
     return str(v)
 
 
@@ -369,12 +371,21 @@ def format_body(v: Any, fmt: FormatState, width: int = 100) -> tuple[str | None,
             if not v.fields:
                 return "  struct with no fields.", []
             namew = max(len(f) for f in v.fields)
-            lines = [f"    {f.rjust(namew)}: {value_summary(d[f], fmt)}" for f in v.fields]
+            lines = [f"    {f.rjust(namew)}: {_struct_field_summary(d[f], fmt)}" for f in v.fields]
             return "  struct with fields:", lines
         return f"  {r}×{c} struct array with fields:", [f"    {f}" for f in v.fields]
     if isinstance(v, MFunc):
         return "  function_handle with value:", [f"    {v.display_text()}"]
+    if isinstance(v, MObject):
+        return f"  {v.cls}", [f"   {v.text}"]
     return None, [f"    {v}"]
+
+
+def _struct_field_summary(v: Any, fmt: FormatState) -> str:
+    s = value_summary(v, fmt)
+    if isinstance(v, MStruct):
+        return f"[{s}]"
+    return s
 
 
 def display(name: str, v: Any, fmt: FormatState, width: int = 100) -> str:
@@ -384,7 +395,7 @@ def display(name: str, v: Any, fmt: FormatState, width: int = 100) -> str:
     if isinstance(v, MString) and v.data.size == 1:
         return f"{name} = \n\n{lines[0]}\n\n" if loose else f"{name} = \n{lines[0]}\n"
     # Los structs muestran "x = " con espacio final (capturado de MATLAB R2026b, AC-19)
-    out = [f"{name} = " if isinstance(v, (MStruct, MMap)) else f"{name} ="]
+    out = [f"{name} = " if isinstance(v, (MStruct, MMap, MObject)) else f"{name} ="]
     if loose:
         out.append("")
     if header:

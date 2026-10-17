@@ -169,7 +169,11 @@ def _int_binary(names: tuple[str, ...], fn: Callable[[np.ndarray, np.ndarray], n
     def body(I: Any, args: list[Any], nargout: int) -> Any:
         nargchk(args, 2, 2)
         x, y = np.broadcast_arrays(as2d(to_double(args[0])), as2d(to_double(args[1])))
-        return tidy(as2d(np.asarray(fn(np.real(x).astype(np.int64), np.real(y).astype(np.int64)))))
+        out = tidy(as2d(np.asarray(fn(np.real(x).astype(np.int64), np.real(y).astype(np.int64)))))
+        int_cls = next((class_of(a) for a in args[:2] if class_of(a) in INT_TYPES), None)
+        if int_cls is None:
+            return out.astype(float)
+        return out.astype(INT_TYPES[int_cls])
     builtin(*names)(body)
 
 
