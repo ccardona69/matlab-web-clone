@@ -22,13 +22,17 @@ shell se suscribe:
 
 | Canal (sin prefijo /matlab) | Respuesta |
 |---|---|
-| `{prefix}/feval/request` | `feval/response` + `text/output`/`text/error` con el mismo `requestID`; `function=eval/evalin` evalúa el arg de cadena, el resto construye la llamada |
+| `{prefix}/feval/request` | `feval/response` + `text/output`/`text/error` + `mvmSinks/output` con el mismo `requestID`; `function=eval/evalin` evalúa el arg de cadena, namespaces internos responden no-op |
 | `{prefix}/mvmSinks/request` | `mvmSinks/response` (instala los sinks de texto) |
-| `{prefix}/subscribeEvent/request` | `subscribeEvent/response` |
+| `{prefix}/subscribeEvent/request` | `subscribeEvent/response` + `{prefix}/event/fireEvent` inicial (`mlutil::prompt::PromptEvent` con `isIdle:true`, `requester:"BASE_PROMPT"`) |
 | `{prefix}/disconnectEvent/request` | `disconnectEvent/response` |
-| `/matlab/settingsChannel/Request` | `settingsChannel/Response`; store en memoria (Get/Set/AddListener). Corta la tormenta de ~850 reintentos |
-| `/shortcuts/model/services/request/*` | `response/{op}/...` y `response/{op}` (ambas). Corta ~4100 reintentos |
-| `/filesystem/{listfolder,operations}/start` | acuse (service start) |
+| `/editor/event-notification-request` | responde en `data.messageChannel` (`/executionstateservice/hasinitialized`) con `{dataMap:{isInitialized}, requesterId}`, desbloqueando `ExecutionStateService` para mostrar `>>` y `Ready` |
+| `/matlab/settingsChannel/Request` | `data.channel` (`/matlab/settingsChannel/Response/<uuid>`); store en memoria + defaults reales de fuentes RTC (`Monospaced`, `10pt`), tema (`Light`) y colores |
+| `/shortcuts/model/services/request/*` | `/shortcuts/model/services/ack` + `response/{op}/...` con `responseId` secuencial (`0, 1, 2...`) y `status:true` |
+| `/regfwk/apis/getResourceList` | `/regfwk/apis/resourceList/<clientId>` con `{resourcesFilesData:[], uuid}` |
+| `/fctrl/addcb` | `/fctrl/response/addcb` con el estado del feature flag |
+| `/filesystem/listfolder/*` | `listfolder/started` y `listfolder/response` con datos del disco local |
+| `*` (`mf.zero.io.ModelSynchronizer.*`) | respuesta en el canal espejo (`Client`/`out`/`toClient`) con modelo mínimo |
 
 Observabilidad: cada `/meta/subscribe` registra `subscribe→<canal>` en
 `/api/e1/channels`, de modo que el mapa muestra qué canales de respuesta espera
@@ -59,12 +63,11 @@ python -m uvicorn backend.app:app --port 8002
 # 3) El wire auténtico queda en /api/e1/request-log y /api/e1/channels.
 ```
 
-## Pasos pendientes de verificación
+## Verificación completada
 
-1. Boot del shell en navegador contra el emulador → `>>` visible.
-2. `1+1` en el Command Window → `feval/request` llega a `mvm.execute` y
-   `ans =` + `2` se renderiza vía `text/output`.
-3. Captura comparativa oráculo vs emulador del mismo flujo (mismo comando).
+1. Boot del shell en navegador contra el emulador (`:8002`, sin MATLAB connector) → `<div data-state="ready">Ready prompt</div>`, `<span class="promptNode active">&gt;&gt; </span>` y status `Ready` visibles en ~12 s.
+2. Evaluación interactiva en el Command Window real (`2+2`) → `/matlab/mvm/<id>/eval/request` (`isUserEval: true`) ejecutado por `mvm.execute` con salida publicada por `text/output` y `mvmSinks/output`.
+3. Captura comparativa oráculo (`:8004`) vs emulador (`:8002`) documentada en `docs/acceptance/ui/e1-request-map.md` (iteración 3).
 
 ## Límites
 

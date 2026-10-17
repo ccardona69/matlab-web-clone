@@ -138,22 +138,25 @@ shell publica tras el attach MVM ya obtienen respuesta correlacionada:
 
 | Canal (wire, cliente → backend) | Payload observado | Respuesta publicada |
 |---|---|---|
-| `/matlab/mvm/user-mvm/feval/request` | `{function, rhsArgs[], numOutputsExpected, runOptions:{dequeueMode,useNullErrSink,eventConnections}, requestID}` | `feval/response` + `text/output`/`text/error` (mismo `requestID`); `function=eval`/`evalin` evalúa el arg; el resto construye la llamada |
-| `/matlab/mvm/user-mvm/mvmSinks/request` | `{outSinkTraits:{supportsMore,supportsHotlinks,needsFormattingForDisplay,useDiary,useEcho,useLogging}, errSinkTraits:{...}, requestID}` | `mvmSinks/response` |
-| `/matlab/mvm/user-mvm/subscribeEvent/request` | `{eventName, requestID}` (p. ej. `mlutil::io::UncaughtInterruptEvent`) | `subscribeEvent/response` |
-| `/matlab/mvm/user-mvm/disconnectEvent/request` | `{requestIDtoDisconnect, requestID}` | `disconnectEvent/response` |
-| `/matlab/matlab/settingsChannel/Request` | `{type:"AddListenerMessage"/"GetSettingMessage"/"SetSettingMessage", SettingName, SettingValue?}` | `settingsChannel/Response` con `{type:<X>Response, SettingName, SettingValue}`; store en memoria. Corta la tormenta de ~850 reintentos |
-| `/matlab/shortcuts/model/services/request/*` | `{uid, clientId, requestId, payload}` | `response/{op}/...` y `response/{op}` (cubre ambas suscripciones). Corta ~4100 reintentos |
-| `/matlab/filesystem/{listfolder,operations}/start` | `{}` | acuse |
+| `/matlab/mvm/attach/request` | `{mvmID:"user-mvm", supportedApiVersions:["v7_0"], requestID}` | `/matlab/mvm/attach/response` con `channelPrefix="/mvm/<requestID>"` (dinámico por sesión) |
+| `/matlab/mvm/{id}/feval/request` | `{function, rhsArgs[], numOutputsExpected, runOptions:{dequeueMode,useNullErrSink,eventConnections}, requestID}` | `feval/response` (`result:[...]`) + `text/output`/`text/error` + `mvmSinks/output`; `function=eval`/`evalin` evalúa el arg; namespaces internos (`connector.*`, `simulink.*`, `matlab.*`) responden no-op |
+| `/matlab/mvm/{id}/eval/request` | `{command, isUserEval, requestID}` (incluye housekeeping `builtin('_installSink', true);` y comandos de usuario como `2+2`) | `eval/response` + `text/output` + `mvmSinks/output` + `event/fireEvent` (`PromptEvent` Busy→Idle) |
+| `/matlab/mvm/{id}/mvmSinks/request` | `{outSinkTraits:{...}, errSinkTraits:{...}, requestID}` | `mvmSinks/response` |
+| `/matlab/mvm/{id}/subscribeEvent/request` | `{eventName, requestID}` (`mlutil::prompt::PromptEvent`, `mlutil::prompt::PromptEvent\|\|UserGroup`, `mvm_events::ClientCapabilityEvent`, etc.) | `subscribeEvent/response` + disparo inmediato en `{prefix}/event/fireEvent` con `PromptEvent` (`isIdle:true`, `requester:"BASE_PROMPT"`) |
+| `/matlab/mvm/{id}/disconnectEvent/request` | `{requestIDtoDisconnect, requestID}` | `disconnectEvent/response` |
+| `/matlab/editor/event-notification-request` | `{messageChannel:"/executionstateservice/hasinitialized", requesterId}` | publica en `/matlab/executionstateservice/hasinitialized` `{dataMap:{isInitialized}, requesterId}` (**gate crítico**: desbloquea `ExecutionStateService` para pasar de `Initializing prompt` a `Ready prompt` `>>`) |
+| `/matlab/matlab/settingsChannel/Request` | `GetSettingMessage`, `GetSettingsMessage`, `GetAllSettingsMessage`, `SetSettingMessage`, `ClearSettingMessage`, `GetMessage`, `AddListenerMessage` | `data.channel` (`/matlab/settingsChannel/Response/<uuid>`) con defaults reales de fuentes RTC (`Monospaced`, `10pt`), tema (`Light`) y colores |
+| `/matlab/shortcuts/model/services/request/*` | `{uid, clientId, requestId, payload}` | `/matlab/shortcuts/model/services/ack` + `response/{op}/...` con `responseId` secuencial (`0, 1, 2...`) y `status:true` |
+| `/matlab/regfwk/apis/getResourceList` | `{uuid, clientId, resourceSpecifications}` | `/matlab/regfwk/apis/resourceList/<clientId>` con `{resourcesFilesData:[], uuid}` |
+| `/matlab/fctrl/addcb` | `{id, name, mvm}` | `/matlab/fctrl/response/addcb` con `{FCtrlState, defaultValue, id, name, scope, value}` |
+| `/matlab/filesystem/listfolder/*` | `start`, `get-path-separator`, `getprocesscwd`, `getfilesystemroots`, `get-iri`, `watch`, `getchildren` | `listfolder/started` o `listfolder/response` correlacionado por `uuid` |
+| `*` con `type: "mf.zero.io.ModelSynchronizer.*"` | `FetchModel` / `FetchModelWithDataDefinition` (`lf-channel`, `MF0ViewModelManagerServer`, `toServer`) | canal espejo (`Client`, `out`, `toClient`) con modelo mínimo vacío |
 
-Observabilidad añadida: cada `/meta/subscribe` queda registrada como
-`subscribe→<canal>` en `/api/e1/channels`, así el mapa muestra los canales de
-respuesta que el shell espera (p. ej. `…/shortcuts/model/services/response/add`).
+### Resultado verificado en navegador (iteración 3)
 
-Primer feval observado del boot real: `function="simulink.online.internal.bootstrap"`
-con `rhsArgs=["{\"keyboardLayout\":\"\",\"locale\":\"en-us\",\"browserSize\":{...}}"]`
-— no es código de usuario; el eval del Command Window llega al implementar la
-cadena completa (attach → sinks → feval).
+- Arranque completo en ~12 s (`advice.interval` dinámico: `50 ms` con cola activa, `250 ms` en reposo).
+- El DOM alcanza `<div data-state="ready">Ready prompt</div>`, `<span class="promptNode active">&gt;&gt; </span>` y `<span class="mwTextLine">Ready</span>` en la barra de estado, **100% contra el backend Python propio** (sin MATLAB connector).
+- Evaluación interactiva verificada desde el Command Window real: `2+2` → `/matlab/mvm/<id>/eval/request` (`isUserEval: true`) evaluado por `backend/mvm_engine.py`.
 
 ### Modo oráculo (WO-07)
 

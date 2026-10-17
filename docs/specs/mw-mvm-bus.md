@@ -76,9 +76,12 @@ canales Bayeux que WO-07 responde correlacionadas:
 
 | Canal (sin prefijo `/matlab`) | Respuesta |
 |---|---|
-| `/matlab/settingsChannel/Request` | `/matlab/settingsChannel/Response` con `{type:<X>Response, SettingName, SettingValue}` (store en memoria) |
-| `/shortcuts/model/services/request/{op}/...` | `/shortcuts/model/services/response/{op}/...` y `response/{op}` con `{uid, clientId, requestId, payload}` |
-| `/filesystem/{listfolder,operations}/start` | acuse de servicio |
+| `/editor/event-notification-request` | publica en `data.messageChannel` (p. ej. `/executionstateservice/hasinitialized`) `{dataMap:{isInitialized}, requesterId}` para desbloquear `ExecutionStateService` (`>>` Ready) |
+| `/matlab/settingsChannel/Request` | `data.channel` (`/matlab/settingsChannel/Response/<uuid>`) con `{type:<X>Response, uuid, makeCompatible, settingData}` y defaults de fuentes/tema/colores |
+| `/shortcuts/model/services/request/{op}/...` | `/shortcuts/model/services/ack` + `/shortcuts/model/services/response/{op}/...` con `{uid, clientId, requestId, responseId, status:true, payload}` |
+| `/regfwk/apis/getResourceList` | `/regfwk/apis/resourceList/<clientId>` con `{resourcesFilesData:[], uuid}` |
+| `/fctrl/addcb` | `/fctrl/response/addcb` con `{FCtrlState, defaultValue, id, name, scope, value}` |
+| `/filesystem/listfolder/*` | `/filesystem/listfolder/started` y `/filesystem/listfolder/response` correlacionado por `uuid` |
 
 ## Tópicos de alto nivel y nombres de UI
 
