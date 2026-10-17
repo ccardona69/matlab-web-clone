@@ -107,11 +107,29 @@ def should_proxy(path: str) -> bool:
     return False
 
 
+def _rewrite_connector_urls(node: Any, base: str, origin: str) -> Any:
+    """Sustituye la URL del connector por el origen del proxy en respuestas JSON.
+
+    El connector devuelve routingHost=https://127.0.0.1:31515/ en AcquireMatlab y
+    el JSD pasa a llamar DIRECTO al connector (saltándose el proxy y fallando
+    por el certificado autofirmado). Reescribiendo la URL al origen del proxy,
+    todas las llamadas siguen por nosotros y el wire queda grabado.
+    """
+    if isinstance(node, dict):
+        return {k: _rewrite_connector_urls(v, base, origin) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_rewrite_connector_urls(v, base, origin) for v in node]
+    if isinstance(node, str) and base in node:
+        return node.replace(base, origin)
+    return node
+
+
 async def proxy(request: Request) -> Response:
     """Reenvía la petición al connector real preservando método, query y cuerpo."""
     base = connector_url()
     rel = request.url.path.lstrip("/")
     body = await request.body()
+    origin = str(request.base_url).rstrip("/")
     # El wire del bus (messageservice) es JSON pequeño: se registra íntegro
     # (req+resp) para el oráculo. Assets y servicios grandes solo status.
     _is_wire = rel.startswith(("messageservice", "matlab/messageservice"))
@@ -145,6 +163,17 @@ async def proxy(request: Request) -> Response:
             },
         )
     _record("proxy", f"{request.method} /{rel}", status=upstream.status_code)
+    content = upstream.content
+    media_type = upstream.headers.get("content-type") or ""
+    if "json" in media_type:
+        import json as _json
+
+        try:
+            content = _json.dumps(
+                _rewrite_connector_urls(_json.loads(content), base, origin)
+            ).encode()
+        except Exception:
+            pass
     if _is_wire:
         import json as _json
 
@@ -154,13 +183,13 @@ async def proxy(request: Request) -> Response:
         except Exception:
             wire["request_raw"] = body[:2000].decode("utf-8", "replace")
         try:
-            wire["response"] = _json.loads(upstream.content)
+            wire["response"] = _json.loads(content)
         except Exception:
-            wire["response_raw"] = upstream.content[:2000].decode("utf-8", "replace")
+            wire["response_raw"] = content[:2000].decode("utf-8", "replace")
         _record("wire", f"{request.method} /{rel}", payload=wire, status=upstream.status_code)
     excluded = ("transfer-encoding", "content-encoding", "connection", "content-length")
     return Response(
-        content=upstream.content,
+        content=content,
         status_code=upstream.status_code,
         headers={k: v for k, v in upstream.headers.items() if k.lower() not in excluded},
         media_type=upstream.headers.get("content-type"),
