@@ -268,7 +268,13 @@ def _request_id(data: dict[str, Any]) -> str | None:
     return rid if isinstance(rid, str) else None
 
 
-def publish_eval_output(
+def _wrap_rich_output(rich_data: dict[str, Any]) -> str:
+    inner = json.dumps(rich_data, separators=(",", ":"))
+    outer = json.dumps({"outputsData": inner}, separators=(",", ":"))
+    return f"<RICH_OUTPUT>{outer}</RICH_OUTPUT>"
+
+
+def _publish_command_output(
     publish: Publish,
     prefix: str,
     request_id: str | None,
@@ -281,20 +287,32 @@ def publish_eval_output(
     - `{prefix}/mvmSinks/output` con `{stream, text}`: sink GLOBAL instalado con
       mvmSinks/request (stream 0=stdout, 1=stderr; MVMSink._handleOutput solo
       lee stream+text). Es el camino por el que el Command Window pinta el
-      output persistente.
+      output persistente (con sobre <RICH_OUTPUT> para matrices).
     """
     for segment in result.get("segments") or []:
         kind = segment.get("kind")
-        if kind in ("out", "warn", "err") and segment.get("text"):
+        if kind in ("out", "warn", "err") and (segment.get("text") or segment.get("rich")):
             stream = "error" if kind == "err" else "output"
-            publish({
-                "channel": f"{prefix}/text/{stream}",
-                "data": {"requestID": request_id, "text": segment["text"]},
-            })
+            plain_text = segment.get("text", "")
+            if plain_text:
+                publish({
+                    "channel": f"{prefix}/text/{stream}",
+                    "data": {"requestID": request_id, "text": plain_text},
+                })
+            rich = segment.get("rich")
+            if isinstance(rich, list):
+                sink_text = "".join(_wrap_rich_output(r) for r in rich)
+            elif isinstance(rich, dict):
+                sink_text = _wrap_rich_output(rich)
+            else:
+                sink_text = segment.get("sink_text") or plain_text
             publish({
                 "channel": f"{prefix}/mvmSinks/output",
-                "data": {"stream": 1 if kind == "err" else 0, "text": segment["text"]},
+                "data": {"stream": 1 if kind == "err" else 0, "text": sink_text},
             })
+
+
+publish_eval_output = _publish_command_output
 
 
 def _feval_code(data: dict[str, Any]) -> str | None:

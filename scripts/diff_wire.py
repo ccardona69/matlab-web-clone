@@ -70,9 +70,16 @@ def normalize(text: str) -> str:
 
 def compare(prof_cmds: list[dict[str, Any]], alum_cmds: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows = []
-    alum_by_cmd = {c["command"]: c for c in alum_cmds}
+    # Emparejar por (comando, n-esima ocurrencia): el curriculum repite
+    # comandos ('who', 'clear all', 'A') y un dict por texto colisiona.
+    from collections import defaultdict, deque
+
+    alum_by_cmd: dict[str, deque[dict[str, Any]]] = defaultdict(deque)
+    for c in alum_cmds:
+        alum_by_cmd[c["command"]].append(c)
     for prof in prof_cmds:
-        alum = alum_by_cmd.get(prof["command"])
+        queue = alum_by_cmd.get(prof["command"])
+        alum = queue.popleft() if queue else None
         prof_text = "".join(o["text"] for o in prof["outputs"])
         row = {
             "command": prof["command"],
