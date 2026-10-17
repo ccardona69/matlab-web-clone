@@ -218,8 +218,7 @@ def e1_launch() -> Response:
 
 _INSTALL_PREFIXES = (
     "ui",
-    "toolbox/matlab/rich_text_component",
-    "toolbox/matlab/rtc_addons",
+    "toolbox",
 )
 
 

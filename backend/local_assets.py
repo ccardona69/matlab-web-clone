@@ -33,7 +33,7 @@ from backend.matlab.library import BUILTINS
 _ASSETS_ROOT_ENV = "MATLAB_ROOT"
 _MIRROR_ROOT_ENV = "MATLAB_MIRROR"
 _MIRROR_DIRNAME = "ml-mirror"
-_ALLOWED_PREFIXES = ("ui", "sys")
+_ALLOWED_PREFIXES = ("ui", "sys", "toolbox")
 # Subárboles puntuales fuera de ui/sys que el shell real también carga en
 # runtime (componentes de UI bajo toolbox/matlab/: el bundle del texto
 # enriquecido del Command Window y los chunks de rtc_addons/copilot).

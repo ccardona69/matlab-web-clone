@@ -112,12 +112,134 @@ def _h_client_type(entry: dict[str, Any], _ctx: _Ctx) -> dict[str, Any]:
     return {"properties": props}
 
 
+def _h_open_file(entry: dict[str, Any], _ctx: _Ctx) -> dict[str, Any]:
+    import os
+    from pathlib import Path
+    from backend.e1_bus_services import _fs_entry, _is_safe_path
+
+    path = str(entry.get("path") or "")
+    uuid_str = entry.get("uuid")
+    if not path or not _is_safe_path(path) or not os.path.isfile(path):
+        return {
+            "apiVersion": "1.4",
+            "isDebugEvent": False,
+            "messageFaults": [
+                {
+                    "faultCode": "FileService.IOError",
+                    "faultConditions": [{"faultId": "FileNotFound", "faultInfo": [path]}],
+                    "message": f"{path} does not exist.",
+                }
+            ],
+            "uuid": uuid_str,
+        }
+    try:
+        content = Path(path).read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        content = Path(path).read_text(encoding="latin-1", errors="replace")
+    return {
+        "apiVersion": "1.4",
+        "file": {
+            "content": content,
+            "fileInfo": _fs_entry(path),
+        },
+        "lineNumber": 1,
+        "column": 1,
+        "isDebugEvent": False,
+        "messageFaults": [],
+        "uuid": uuid_str,
+    }
+
+
+def _h_update_file(entry: dict[str, Any], _ctx: _Ctx) -> dict[str, Any]:
+    from pathlib import Path
+    from backend.e1_bus_services import _is_safe_path
+
+    file_obj = entry.get("file") or {}
+    file_info = file_obj.get("fileInfo") or {}
+    path = str(file_info.get("path") or entry.get("path") or "")
+    uuid_str = entry.get("uuid")
+    if path and _is_safe_path(path) and "content" in file_obj:
+        Path(path).write_text(file_obj["content"], encoding="utf-8")
+    return {
+        "apiVersion": "1.4",
+        "file": file_obj,
+        "messageFaults": [],
+        "uuid": uuid_str,
+    }
+
+
+def _h_create_file(entry: dict[str, Any], _ctx: _Ctx) -> dict[str, Any]:
+    import os
+    from pathlib import Path
+    from backend.e1_bus_services import _fs_entry, _is_safe_path
+
+    file_obj = entry.get("file") or {}
+    file_info = file_obj.get("fileInfo") or {}
+    path = str(file_info.get("path") or entry.get("path") or "")
+    uuid_str = entry.get("uuid")
+    is_dir = bool(file_info.get("isDirectory"))
+    if path and _is_safe_path(path):
+        if is_dir:
+            os.makedirs(path, exist_ok=True)
+        else:
+            Path(path).write_text(file_obj.get("content", ""), encoding="utf-8")
+    return {
+        "apiVersion": "1.4",
+        "fileInfo": _fs_entry(path) if path else {},
+        "lineNumber": 1,
+        "column": 1,
+        "messageFaults": [],
+        "uuid": uuid_str,
+    }
+
+
+def _h_current_folder(entry: dict[str, Any], _ctx: _Ctx) -> dict[str, Any]:
+    import os
+    from pathlib import Path
+
+    cwd = os.getcwd()
+    parent = str(Path(cwd).parent)
+    return {
+        "apiVersion": "1.0",
+        "currentFolder": {
+            "deleted": False,
+            "filePermissions": {"canWrite": True},
+            "isDirectory": True,
+            "location": (parent + "\\") if parent else "\\",
+            "name": Path(cwd).name,
+            "separator": "\\",
+            "type": "",
+        },
+        "messageFaults": [],
+        "uuid": entry.get("uuid"),
+    }
+
+
+def _h_generic_ack(entry: dict[str, Any], _ctx: _Ctx) -> dict[str, Any]:
+    return {"messageFaults": [], "uuid": entry.get("uuid")}
+
+
 _HANDLERS: dict[str, Callable[[dict[str, Any], _Ctx], dict[str, Any]]] = {
     "CurrentUser": _h_current_user,
     "AcquireMatlab": _h_acquire_matlab,
     "GetMatlabStatus": _h_get_matlab_status,
     "ServiceRegistry": _h_service_registry,
     "ClientType": _h_client_type,
+    "OpenFile": _h_open_file,
+    "CreateFile": _h_create_file,
+    "UpdateFile": _h_update_file,
+    "CloseFile": _h_generic_ack,
+    "DeleteFile": _h_generic_ack,
+    "CurrentFolder": _h_current_folder,
+    "ClientModulesStarted": _h_generic_ack,
+    "GetLoginInfoMessage": lambda e, c: {
+        "info": {"displayName": "", "emailAddress": "", "firstName": "", "lastName": "", "profileId": "", "userId": ""},
+        "level": 0, "loggedIn": False, "messageFaults": [], "uuid": e.get("uuid"),
+    },
+    "GetLoginPrereqsMessage": lambda e, c: {
+        "logoutAllowed": True, "message": "", "messageFaults": [], "messageType": "", "uuid": e.get("uuid"), "veto": False,
+    },
+    "AddStatusListenerMessage": _h_generic_ack,
 }
 
 

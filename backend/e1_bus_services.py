@@ -26,7 +26,9 @@ app.py (evita el ciclo app → e1_probe → app).
 from __future__ import annotations
 
 import json
+import os
 import uuid
+from pathlib import Path
 from typing import Any, Callable
 
 Publish = Callable[[dict[str, Any]], None]
@@ -135,6 +137,7 @@ _DEFAULT_SETTINGS: dict[str, Any] = {
     "matlab.desktop.workspace.columns.ColumnWidths": [[75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75]],
     "matlab.editor.RecentFileList": {"mwdata": [], "mwsize": [1, 0], "mwtype": "cell"},
     "matlab.editor.RecentClosedFileList": {"mwdata": [], "mwsize": [1, 0], "mwtype": "cell"},
+    "matlab.desktop.Documents": "{\"documents\":[]}",
     "matlab.online.cdAnywhereDisabled": False,
     "matlab.ui.internal.figure.webwindow.LifecycleLogs": "none",
 }
@@ -217,9 +220,15 @@ def _initial_event_data(name: str) -> dict[str, Any] | None:
     if name == "mvm_events::CurrentWorkFolderChangedEvent":
         import os
 
+        cwd = os.getcwd()
         return {
-            "currentWorkFolder": os.getcwd().replace("\\", "/"),
-            "filterTags": ["mvm_events::CurrentWorkFolderChangedEvent"],
+            "currentWorkFolder": cwd,
+            "iri": _fs_iri(cwd),
+            "filterTags": [
+                "mvm_events::CurrentWorkFolderChangedEvent",
+                "foundation::msg_svc::eventmgr::BaseEvent",
+            ],
+            "wasCreatedInProcess": False,
         }
     if name == "mvm_events::MATLABPathChangedEvent":
         return {"editScript": [], "filterTags": ["mvm_events::MATLABPathChangedEvent"]}
@@ -398,9 +407,185 @@ def _split_setting_key(group: Any, name: Any) -> tuple[str, str, str]:
     return group_str, name_str, full
 
 
+def _get_documents_setting() -> str:
+    path = os.path.abspath("ejemplo1_regresion.m")
+    if os.path.exists(path):
+        parent = os.path.dirname(path)
+        doc = {
+            "title": "ejemplo1_regresion.m",
+            "documentType": "editorFile",
+            "state": {
+                "File": {
+                    "fileInfo": {
+                        "location": parent + "\\",
+                        "name": "ejemplo1_regresion.m",
+                        "filePermissions": {"canWrite": True},
+                        "isDirectory": False,
+                        "separator": "\\",
+                        "parent": parent,
+                        "path": path,
+                        "type": "m",
+                        "__FAKE_FILE_INFO__": True,
+                        "iri": "",
+                        "codeAnalysis": {},
+                    },
+                    "id": path,
+                    "isUntitled": False,
+                    "metadata": {
+                        "featureMarkers": [],
+                        "fileVersion": {},
+                        "hasOutputView": False,
+                        "supportedVersion": {"major": 1, "minor": 1},
+                        "fileType": "script",
+                    },
+                },
+                "IsMATLABApiRequest": False,
+                "SerializedStates": None,
+                "ShowErrorDialogs": True,
+                "AddEditorViewToUiContainer": False,
+                "IsFileExists": True,
+                "IsRestored": True,
+                "Metadata": {
+                    "featureMarkers": [],
+                    "fileVersion": {},
+                    "hasOutputView": False,
+                    "supportedVersion": {"major": 1, "minor": 1},
+                    "fileType": "script",
+                },
+                "WaitToInitialize": True,
+            },
+            "factoryPath": "MOTW/editor/EditorWidgetFactory",
+            "moduleInfo": None,
+            "isDocked": True,
+        }
+        return json.dumps({"documents": [doc]}, separators=(",", ":"))
+    return '{"documents":[]}'
+
+
+def _get_layout_state_setting() -> str:
+    path = os.path.abspath("ejemplo1_regresion.m")
+    base_layout = {
+        "majorVersion": 3,
+        "minorVersion": 1,
+        "panelLayout": {
+            "referenceWidth": 1920,
+            "referenceHeight": 789,
+            "centerExpanded": False,
+            "centerCollapsed": False,
+            "left": {
+                "freeDimension": 480,
+                "collapsed": False,
+                "expanded": False,
+                "portion": 0.25,
+                "children": [
+                    {
+                        "id": "files_workspace",
+                        "children": [{"id": "cfb", "collapsed": False}, {"id": "workspace", "collapsed": False}],
+                        "showing": True,
+                    },
+                    {"id": "find_files", "children": [{"id": "mw.desktop.findFilesPanel", "collapsed": False}]},
+                    {"id": "command_history", "children": [{"id": "commandHistory", "collapsed": False}]},
+                    {"id": "addOns", "children": [{"id": "mw.desktop.addOnsPanel", "collapsed": False}]},
+                ],
+            },
+            "right": {"freeDimension": 480, "collapsed": False, "expanded": False, "portion": 0.25},
+            "bottom": {
+                "freeDimension": 197,
+                "collapsed": False,
+                "expanded": False,
+                "portion": 0.2497,
+                "children": [
+                    {
+                        "id": "bottomRegion_global_group_0",
+                        "children": [
+                            {
+                                "id": "commandWindow",
+                                "parentState": {
+                                    "gridDimensions": {"w": 1, "h": 1},
+                                    "tileCount": 1,
+                                    "tileCoverage": [[0]],
+                                    "referenceWidth": 1438,
+                                    "referenceHeight": 197,
+                                    "columnWeights": [1],
+                                    "rowWeights": [1],
+                                    "columnLeft": [0, 1438],
+                                    "rowTop": [0, 197],
+                                },
+                            }
+                        ],
+                        "showing": True,
+                    }
+                ],
+            },
+        },
+        "documentLayout": {
+            "gridDimensions": {"w": 1, "h": 1},
+            "tileCount": 1,
+            "tileCoverage": [[0]],
+            "referenceWidth": 1438,
+            "referenceHeight": 563,
+            "columnWeights": [1],
+            "rowWeights": [1],
+            "columnLeft": [0, 1438],
+            "rowTop": [0, 563],
+            "tileOccupancy": [
+                {
+                    "children": [{"showOrder": 0, "id": "editorFile0.1369480744362821", "title": "Editor", "selectionOrder": 11}],
+                    "showingChildId": "editorFile0.1369480744362821",
+                    "showingChildTitle": "Editor",
+                }
+            ],
+            "selectionOrder": {"editorFile0.1369480744362821": 14},
+            "nestings": [
+                {
+                    "gridDimensions": {"w": 1, "h": 1},
+                    "tileCount": 1,
+                    "tileCoverage": [[0]],
+                    "referenceWidth": 1438,
+                    "referenceHeight": 540,
+                    "columnWeights": [1],
+                    "rowWeights": [1],
+                    "columnLeft": [0, 1438],
+                    "rowTop": [0, 540],
+                    "tileOccupancy": [
+                        {
+                            "children": [{"showOrder": 18, "id": f"editorFile_{path}", "title": "ejemplo1_regresion.m", "selectionOrder": 11}],
+                            "showingChildId": f"editorFile_{path}",
+                            "showingChildTitle": "ejemplo1_regresion.m",
+                        }
+                    ],
+                    "selectionOrder": {f"editorFile_{path}": 14},
+                    "groupId": "editorFile",
+                    "nestingId": "editorFile0.1369480744362821",
+                }
+            ],
+            "reserveDocumentSpace": True,
+            "lastSelectedDocumentId": path,
+        },
+        "windowBounds": {"x": 0, "y": 0, "w": 1920, "h": 1032},
+        "toolstripCollapsed": False,
+        "types": {"defaultfigure": {"windowBounds": {"x": 415, "y": 52, "w": 1090, "h": 829, "done": 1}}},
+        "tools": {
+            "documentPrimaryTools": {"variable": {"location": "center"}, "variableviewer": {"location": "center"}},
+            "panelPrimaryTools": {
+                "workspace": {"location": "left", "isDocked": True, "isOpen": True},
+                "commandWindow": {"location": "bottom", "isDocked": True, "isOpen": True},
+                "commandHistory": {"location": "left", "isDocked": True, "isOpen": True},
+                "cfb": {"location": "left", "isDocked": True, "isOpen": True},
+                "mw.desktop.findFilesPanel": {"location": "left", "isDocked": True, "isOpen": True},
+            },
+        },
+    }
+    return json.dumps(base_layout, separators=(",", ":"))
+
+
 def _get_setting_value(full_key: str, node_name: str) -> Any:
     if full_key in _SETTINGS:
         return _SETTINGS[full_key]
+    if full_key == "matlab.desktop.Documents":
+        return _get_documents_setting()
+    if full_key == "matlab.desktop.LayoutState":
+        return _get_layout_state_setting()
     if full_key in _DEFAULT_SETTINGS:
         return _DEFAULT_SETTINGS[full_key]
     low = full_key.lower()
@@ -565,8 +750,71 @@ def _handle_request_response(
     return True
 
 
+from pathlib import Path
+import urllib.parse
+import hashlib
+import time
+
+_SAFE_ROOTS: list[Path] = [Path.cwd().resolve(), Path.home().resolve()]
+
+
+def set_filesystem_safe_roots(roots: list[str | Path] | None) -> None:
+    """Configura las raíces permitidas para lectura/escritura en el filesystem."""
+    global _SAFE_ROOTS
+    if roots is None:
+        _SAFE_ROOTS = [Path.cwd().resolve(), Path.home().resolve()]
+    else:
+        _SAFE_ROOTS = [Path(r).resolve() for r in roots]
+
+
+def _is_safe_path(p: str | Path, allow_ancestor: bool = False) -> bool:
+    """Verifica si la ruta está dentro de las raíces seguras (o es ancestro permitido para navegación)."""
+    if not p:
+        return False
+    try:
+        resolved = Path(p).resolve()
+        for root in _SAFE_ROOTS:
+            try:
+                resolved.relative_to(root)
+                return True
+            except ValueError:
+                if allow_ancestor:
+                    try:
+                        root.relative_to(resolved)
+                        return True
+                    except ValueError:
+                        pass
+        return False
+    except Exception:
+        return False
+
+
 def _fs_iri(path: str) -> str:
-    return "file:///" + path.replace("\\", "/")
+    """Genera IRI con URL-encoding verbatim del connector real."""
+    import os
+
+    p = os.path.abspath(path).replace("\\", "/")
+    if len(p) >= 2 and p[1] == ":":
+        p = p[0].upper() + p[1:]
+    clean = p.rstrip("/")
+    encoded = urllib.parse.quote(clean, safe="/:$")
+    if not encoded.startswith("/"):
+        return f"file:///{encoded}"
+    return f"file://{encoded}"
+
+
+def _iri_to_path(iri: str) -> str:
+    """Convierte un IRI file:/// a ruta local de Windows."""
+    if not iri:
+        return ""
+    if iri.startswith("file:///"):
+        raw = iri[len("file:///"):]
+    elif iri.startswith("file://"):
+        raw = iri[len("file://"):]
+    else:
+        raw = iri
+    unquoted = urllib.parse.unquote(raw)
+    return unquoted.replace("/", "\\")
 
 
 def _fs_entry(path: str) -> dict[str, Any]:
@@ -574,29 +822,47 @@ def _fs_entry(path: str) -> dict[str, Any]:
     import os
 
     p = os.path.abspath(path)
-    name = os.path.basename(p) or p
-    parent = os.path.dirname(p)
-    is_dir = os.path.isdir(p)
+    drive, rest = os.path.splitdrive(p)
+    is_drive_root = (rest in ("\\", "/", "")) and bool(drive)
+    is_dir = os.path.isdir(p) if os.path.exists(p) else is_drive_root
     has_children = False
     if is_dir:
         try:
             has_children = bool(os.listdir(p))
         except OSError:
             pass
+    if is_drive_root:
+        name = drive.upper()
+        parent = "\\"
+        location = "\\"
+        p_norm = drive.upper() + "\\"
+        ext = "Folder"
+    else:
+        name = os.path.basename(p) or p
+        parent = os.path.dirname(p)
+        location = (parent + "\\") if parent else "\\"
+        p_norm = p
+        ext = "Folder" if is_dir else os.path.splitext(name)[1].lstrip(".").lower()
+
+    can_write = True
+    if os.path.exists(p):
+        can_write = os.access(p, os.W_OK)
+
     return {
+        "filePermissions": {"canWrite": can_write},
         "hasChildren": has_children,
         "hasNonHiddenChildren": has_children,
-        "iri": _fs_iri(p),
+        "iri": _fs_iri(p_norm),
         "isDirectory": is_dir,
-        "isHidden": os.path.basename(p).startswith("."),
-        "location": parent + "\\" if parent else "\\",
+        "isHidden": name.startswith("."),
+        "location": location,
         "name": name,
         "parent": parent,
-        "path": p,
+        "path": p_norm,
         "resolvedTargetPath": "",
         "resolvedTargetType": "",
         "separator": "\\",
-        "type": "Folder" if is_dir else "File",
+        "type": ext,
     }
 
 
@@ -610,15 +876,193 @@ def _fs_roots() -> list[dict[str, Any]]:
         if not os.path.exists(drive):
             continue
         entry = _fs_entry(drive)
-        entry.update({
-            "iri": f"file:///{letter}:",
-            "location": "\\",
-            "name": f"{letter}:",
-            "parent": "\\",
-            "path": drive,
-        })
         roots.append(entry)
     return roots
+
+
+def _build_fs_schema() -> dict[str, Any]:
+    """Construye la definición mf.zero del esquema filesystem_datamodel_base."""
+    classes_props = {
+        "FileInfo": {
+            "folderSyncUUID": "String", "hasChildren": "Boolean", "hasNonHiddenChildren": "Boolean",
+            "iri": ("String", {"isReadOnly": True, "isTransient": True}), "isDirectory": "Boolean",
+            "isHidden": "Boolean", "isWritable": "Boolean", "lastModified": "UInteger64",
+            "lastModifiedStr": "String", "name": "String", "nameEncoded": "String",
+            "resolvedTargetPath": "String", "resolvedTargetType": "String", "size": "UInteger64",
+            "type": "String",
+        },
+        "FileInfoMap": {"data": ("fs.datamodel.base.FileInfo", {"qualifiedBy": "iri", "upper": "*"})},
+        "FileInfoView": {
+            "folderSyncUUID": "String", "hasChildren": "Boolean", "hasNonHiddenChildren": "Boolean",
+            "isDirectory": "Boolean", "isHidden": "Boolean", "isWritable": "Boolean",
+            "lastModified": "UInteger64", "lastModifiedStr": "String", "name": "String",
+            "nameEncoded": "String", "resolvedTargetPath": "String", "resolvedTargetType": "String",
+            "size": "UInteger64", "type": "String",
+        },
+        "FolderSync": {
+            "children": ("fs.datamodel.base.FileInfo", {"isComposite": True, "qualifiedBy": "name", "upper": "*"}),
+            "folderSyncMap": ("fs.datamodel.base.FolderSyncMap", {"opposite": "entries"}),
+            "folders": ("fs.datamodel.base.FolderSync", {"isComposite": True, "qualifiedBy": "iri", "upper": "*"}),
+            "iri": "String", "path": "String",
+        },
+        "FolderSyncMap": {
+            "entries": ("fs.datamodel.base.FolderSync", {"isHashed": True, "opposite": "folderSyncMap", "qualifiedBy": "iri", "upper": "*"}),
+        },
+        "Log": {"entries": ("fs.datamodel.base.LogEntry", {"isComposite": True, "qualifiedBy": "elementId", "upper": "*"})},
+        "LogEntry": {"elementId": "String", "reason": "String"},
+        "WatchReasonEntry": {"flags": ("fs.datamodel.base.WatchFlag", {"defaultValue": "DEFAULT"}), "reason": "String"},
+        "WatchReasons": {"iri": "String", "reasons": ("fs.datamodel.base.WatchReasonEntry", {"isComposite": True, "qualifiedBy": "reason", "upper": "*"})},
+        "WatchReasonsMap": {"entries": ("fs.datamodel.base.WatchReasons", {"isComposite": True, "qualifiedBy": "iri", "upper": "*"})},
+    }
+
+    base_classes = {}
+    for cname, props_spec in classes_props.items():
+        props = {}
+        for pname, pdef in props_spec.items():
+            ptype = pdef[0] if isinstance(pdef, tuple) else pdef
+            pextra = pdef[1] if isinstance(pdef, tuple) else {}
+            prop_obj = {
+                "customQualification": False, "isComposite": False, "isDerived": False,
+                "isDmrStoredSerialized": False, "isHashed": False, "isMcosHidden": False,
+                "isOrdered": True, "isQualificationUnique": True, "isQueryIndex": False,
+                "isReadOnly": False, "isSetOnce": False, "isSparse": False,
+                "isTransient": False, "isUnique": True, "lower": "1", "type": ptype,
+            }
+            prop_obj.update(pextra)
+            props[pname] = prop_obj
+        base_classes[cname] = {
+            "isAbstract": False,
+            "isIdentifiable": False,
+            "properties": props,
+        }
+
+    return {
+        "family": "filesystem_datamodel_base",
+        "modelVersion": "R2020b",
+        "packages": {
+            "fs": {
+                "packages": {
+                    "datamodel": {
+                        "packages": {
+                            "base": {
+                                "classes": base_classes,
+                                "enumerations": {
+                                    "WatchFlag": {
+                                        "literals": {
+                                            "DEFAULT": {"value": "0"},
+                                            "ONLY_REMOVE_ON_EXPLICIT_UNWATCH": {"value": "1"},
+                                        },
+                                        "underlyingType": "Integer",
+                                    }
+                                },
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    }
+
+
+_FS_BASE_SCHEMA = _build_fs_schema()
+
+
+def _fs_model_entries(dir_path: str) -> list[dict[str, Any]]:
+    """Genera las entidades FolderSync y FileInfo de dir_path para mf.zero."""
+    import os
+
+    entries: list[dict[str, Any]] = []
+    p = os.path.abspath(dir_path)
+    folder_uuid = str(uuid.uuid4())
+    iri = _fs_iri(p)
+    entries.append({
+        "type": "fs.datamodel.base.FolderSync",
+        "uuid": folder_uuid,
+        "content": {"iri": iri, "path": p},
+    })
+    stat = os.stat(p) if os.path.exists(p) else None
+    mtime = int(stat.st_mtime) if stat else int(time.time())
+    mtime_str = time.strftime("%d/%m/%Y %H:%M", time.localtime(mtime))
+    name = Path(p).name or p
+    entries.append({
+        "type": "fs.datamodel.base.FileInfo",
+        "uuid": str(uuid.uuid4()),
+        "content": {
+            "folderSyncUUID": f"s:{folder_uuid}",
+            "hasChildren": True,
+            "hasNonHiddenChildren": True,
+            "isDirectory": True,
+            "isWritable": True,
+            "lastModified": mtime,
+            "lastModifiedStr": mtime_str,
+            "name": name,
+            "nameEncoded": name,
+            "type": "Folder",
+        },
+    })
+    try:
+        children = sorted(os.listdir(p))
+    except OSError:
+        children = []
+    for c in children:
+        child_p = os.path.join(p, c)
+        is_dir = os.path.isdir(child_p)
+        c_stat = os.stat(child_p) if os.path.exists(child_p) else None
+        c_mtime = int(c_stat.st_mtime) if c_stat else mtime
+        c_mtime_str = time.strftime("%d/%m/%Y %H:%M", time.localtime(c_mtime))
+        c_size = c_stat.st_size if (c_stat and not is_dir) else 0
+        c_type = "Folder" if is_dir else os.path.splitext(c)[1].lstrip(".").lower()
+        child_entry = {
+            "type": "fs.datamodel.base.FileInfo",
+            "uuid": str(uuid.uuid4()),
+            "content": {
+                "folderSyncUUID": f"p:{folder_uuid}",
+                "hasChildren": False,
+                "hasNonHiddenChildren": False,
+                "isDirectory": is_dir,
+                "isHidden": c.startswith("."),
+                "isWritable": True,
+                "lastModified": c_mtime,
+                "lastModifiedStr": c_mtime_str,
+                "name": c,
+                "nameEncoded": c,
+                "type": c_type,
+            },
+        }
+        if not is_dir:
+            child_entry["content"]["size"] = c_size
+        entries.append(child_entry)
+    return entries
+
+
+def _fs_push_model_report(publish: Publish, dir_path: str) -> None:
+    """Notifica la sincronización de carpetas a FileDataService mediante mf.zero ReportData."""
+    if not _is_safe_path(dir_path, allow_ancestor=True):
+        return
+    entries = _fs_model_entries(dir_path)
+    publish({
+        "channel": "/matlab_filesystem_datamodel/lf-channel",
+        "data": {
+            "type": "mf.zero.ReportData",
+            "correlationId": str(uuid.uuid4()),
+            "content": {
+                "added": entries,
+                "addedElementURIs": [
+                    "http://schema.mathworks.com/mf0/filesystem_datamodel_base/R2020b"
+                ],
+                "destroyed": [],
+                "modified": [],
+                "origin": {
+                    "factory": str(uuid.uuid4()),
+                    "language": "CPlusPlus",
+                    "model": str(uuid.uuid4()),
+                    "ordinal": 1,
+                    "synchronizer": str(uuid.uuid4()),
+                    "transactionId": str(uuid.uuid4()),
+                },
+            },
+        },
+    })
 
 
 def _handle_filesystem(
@@ -649,30 +1093,212 @@ def _handle_filesystem(
     elif channel == "/filesystem/listfolder/getfilesystemroots":
         payload = {"fileSystemRoots": _fs_roots()}
     elif channel == "/filesystem/listfolder/get-iri":
-        payload = {"iri": _fs_iri(str(data.get("path") or ""))}
+        path = str(data.get("path") or "")
+        iri = _fs_iri(path) if _is_safe_path(path, allow_ancestor=True) else ""
+        payload = {"iri": iri}
     elif channel == "/filesystem/listfolder/watch":
+        raw_iri = str(data.get("iri") or "")
+        path = _iri_to_path(raw_iri)
+        if _is_safe_path(path, allow_ancestor=True) and os.path.isdir(path):
+            _fs_push_model_report(publish, path)
+        payload = {}
+    elif channel == "/filesystem/listfolder/unwatch":
         payload = {}
     elif channel == "/filesystem/listfolder/getchildren":
         path = str(data.get("path") or os.getcwd())
+        safe = _is_safe_path(path, allow_ancestor=True)
         children: list[dict[str, Any]] = []
-        try:
-            for child in sorted(os.listdir(path)):
-                children.append(_fs_entry(os.path.join(path, child)))
-        except OSError:
-            pass
+        if safe and os.path.isdir(path):
+            try:
+                for child in sorted(os.listdir(path)):
+                    child_path = os.path.join(path, child)
+                    if _is_safe_path(child_path, allow_ancestor=True):
+                        children.append(_fs_entry(child_path))
+            except OSError:
+                pass
+        abs_p = os.path.abspath(path)
+        loc = (abs_p + "\\") if (safe and os.path.isdir(path)) else ""
         payload = {
             "folder": _fs_entry(path),
             "folderContents": children,
-            "location": os.path.abspath(path) + "\\" if os.path.isdir(path) else "",
+            "location": loc,
         }
     elif channel == "/filesystem/operations/exists":
         response = "filesystem/operations/response"
-        payload = {"exists": os.path.exists(str(data.get("path") or ""))}
+        path = str(data.get("path") or "")
+        safe = _is_safe_path(path, allow_ancestor=True)
+        payload = {
+            "exists": safe and os.path.exists(path),
+            "isDirectory": safe and os.path.isdir(path),
+        }
     else:
         payload = {}
         if channel.startswith("/filesystem/operations/"):
             response = "filesystem/operations/response"
     publish({"channel": f"/{response}", "data": {**payload, "uuid": uid}})
+    return True
+
+
+# ---------------------------------------------------------------------------
+# WO-10: Handlers del Editor y servicios asociados
+# ---------------------------------------------------------------------------
+
+def _handle_editor_systeminfo(data: dict[str, Any], publish: Publish) -> bool:
+    req_type = data.get("type", "")
+    uid = data.get("uid")
+    is_win = (req_type == "isWindows")
+    publish({
+        "channel": "/editor/systeminfoservice/response",
+        "data": {"data": {req_type: is_win}, "uid": uid},
+    })
+    return True
+
+
+def _handle_file_data_service(data: dict[str, Any], publish: Publish) -> bool:
+    import os
+
+    req_type = data.get("type")
+    if req_type == "startServerSide":
+        publish({"channel": "/filesystem/listfolder/started", "data": {"separator": 92}})
+        return True
+    if req_type == "createNewFolder":
+        name = str(data.get("name") or "")
+        paths = data.get("filePaths") or []
+        parent = str(paths[0].get("path") if paths else "")
+        target = os.path.join(parent, name)
+        if _is_safe_path(target):
+            os.makedirs(target, exist_ok=True)
+            publish({
+                "channel": "/matlab/FileDataServiceChannel",
+                "data": {"identifier": "newFolderCreationResponse", "folder": _fs_entry(target)},
+            })
+        return True
+    if req_type == "renameNewFileRequest":
+        old_name = str(data.get("oldName") or "")
+        new_name = str(data.get("newName") or "")
+        paths = data.get("filePaths") or []
+        parent = str(paths[0].get("path") if paths else "")
+        old_path = os.path.join(parent, old_name)
+        new_path = os.path.join(parent, new_name)
+        if _is_safe_path(old_path) and _is_safe_path(new_path) and os.path.exists(old_path):
+            os.rename(old_path, new_path)
+            publish({
+                "channel": "/matlab/FileDataServiceChannel",
+                "data": {
+                    "identifier": "renameNewFileResponse",
+                    "fileInfo": _fs_entry(new_path),
+                    "originalFileInfo": _fs_entry(old_path),
+                    "messageFaults": [],
+                },
+            })
+        return True
+    return True
+
+
+def _handle_mlx_read(channel: str, data: dict[str, Any], publish: Publish) -> bool:
+    import os
+
+    rtc_id = data.get("rtcId") or data.get("uuid") or ""
+    raw_path = str(data.get("filePath") or data.get("path") or "")
+    path = _iri_to_path(raw_path)
+    resp_ch = f"/mlx/service/readResponse/{rtc_id}" if "mlx" in channel else f"/editor/service/readCode/response/{rtc_id}"
+    if not path or not _is_safe_path(path) or not os.path.isfile(path):
+        publish({
+            "channel": resp_ch,
+            "data": {
+                "status": False,
+                "errorId": "read_permission_denied" if not _is_safe_path(path) else "file_does_not_exist",
+            },
+        })
+        return True
+    try:
+        content = Path(path).read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        content = Path(path).read_text(encoding="latin-1", errors="replace")
+    checksum = hashlib.md5(content.encode("utf-8")).hexdigest()
+    publish({
+        "channel": resp_ch,
+        "data": {
+            "status": True,
+            "data": content,
+            "rawContent": content,
+            "originalFilePath": os.path.abspath(path),
+            "readOnly": False,
+            "encoding": "UTF-8",
+            "checksum": checksum,
+            "metadata": {
+                "featureMarkers": [],
+                "fileVersion": {},
+                "hasOutputView": False,
+                "supportedVersion": {"major": 1, "minor": 1},
+                "fileType": "script",
+            },
+        },
+    })
+    return True
+
+
+def _handle_mlx_write(channel: str, data: dict[str, Any], publish: Publish) -> bool:
+    rtc_id = data.get("rtcId") or data.get("uuid") or ""
+    raw_path = str(data.get("filePath") or data.get("path") or "")
+    path = _iri_to_path(raw_path)
+    resp_ch = f"/mlx/service/writeResponse/{rtc_id}"
+    if not path or not _is_safe_path(path):
+        publish({
+            "channel": resp_ch,
+            "data": {"wasSuccessful": False, "status": False, "errorId": "permission_denied"},
+        })
+        return True
+    content = str(data.get("content") or "")
+    Path(path).write_text(content, encoding="utf-8")
+    checksum = hashlib.md5(content.encode("utf-8")).hexdigest()
+    publish({
+        "channel": resp_ch,
+        "data": {
+            "wasSuccessful": True,
+            "status": True,
+            "checksum": checksum,
+            "originalFilePath": os.path.abspath(path),
+        },
+    })
+    return True
+
+
+def _handle_codeanalyzer(data: dict[str, Any], publish: Publish) -> bool:
+    channel_id = data.get("channelId") or ""
+    filename = data.get("fileName") or ""
+    publish({
+        "channel": f"/codeanalyzer/responseChannel/fileStructureJS/{channel_id}",
+        "data": {
+            "filename": filename,
+            "documentState": "valid",
+            "hasTreeError": False,
+            "hasBlockStructureError": False,
+            "fileType": "script",
+            "structure": [],
+            "sections": {"startLines": [], "endLines": [], "isExplicit": [], "names": []},
+            "isFunctionBasedTest": False,
+            "isClassBasedTest": False,
+            "isPlainTextAppDesignerClass": False,
+            "classDefinitions": [],
+            "packageName": "",
+        },
+    })
+    return True
+
+
+def _handle_prefdir(data: dict[str, Any], publish: Publish) -> bool:
+    resp_ch = data.get("channel") or "/prefdirChannel/Response"
+    ch = resp_ch[len("/matlab"):] if resp_ch.startswith("/matlab/") else resp_ch
+    prefdir = os.path.expandvars(r"%APPDATA%\MathWorks\MATLAB\R2026b")
+    publish({
+        "channel": ch,
+        "data": {
+            "prefdir": prefdir,
+            "type": "GetPrefdirMessageResponse",
+            "uuid": data.get("uuid"),
+        },
+    })
     return True
 
 
@@ -722,23 +1348,67 @@ _MFZ_SUFFIX_MAP = {
 
 def _mfz_response_channel(channel: str) -> str:
     head, _, last = channel.rpartition("/")
-    return f"{head}/{_MFZ_SUFFIX_MAP.get(last, last)}"
+    if last in _MFZ_SUFFIX_MAP:
+        suffix = _MFZ_SUFFIX_MAP[last]
+    elif last.endswith("Server"):
+        suffix = last[:-len("Server")] + "Client"
+    elif last.endswith("server"):
+        suffix = last[:-len("server")] + "client"
+    else:
+        suffix = last
+    return f"{head}/{suffix}"
 
 
 def _handle_mfz_fetch(channel: str, data: dict[str, Any], publish: Publish) -> bool:
-    publish({
-        "channel": _mfz_response_channel(channel),
-        "data": {
-            "client": str(uuid.uuid4()),
+    client_id = data.get("client") or str(uuid.uuid4())
+    corr_id = data.get("correlationId")
+    content_in = data.get("content") or {}
+    model_id = content_in.get("modelId") or str(uuid.uuid4())
+
+    resp_channel = _mfz_response_channel(channel)
+    if "lf-channel" in channel:
+        is_watch_reasons = "watchReasons" in channel
+        entries = [] if is_watch_reasons else _fs_model_entries(os.getcwd())
+        payload: dict[str, Any] = {
+            "client": client_id,
+            "type": "mf.zero.io.ModelSynchronizer.ModelWithDataDefinition",
             "content": {
-                "definitions": [],
-                "added": [],
-                "addedElementURIs": [],
-                "destroyed": [],
-                "modified": [],
+                "definitions": [_FS_BASE_SCHEMA],
+                "endpointsImplemented": [],
+                "modelId": model_id,
+                "model": {
+                    "entries": entries,
+                    "packageUris": [
+                        "http://schema.mathworks.com/mf0/filesystem_datamodel_base/R2020b"
+                    ],
+                    "version": "1.0",
+                },
+                "transaction-factory-ordinals": {},
             },
+        }
+        if corr_id:
+            payload["correlationId"] = corr_id
+        publish({"channel": resp_channel, "data": payload})
+        return True
+
+    payload = {
+        "client": client_id,
+        "type": "mf.zero.io.ModelSynchronizer.ModelWithDataDefinition",
+        "content": {
+            "definitions": [],
+            "endpointsImplemented": [],
+            "modelId": model_id,
+            "model": {
+                "entries": [],
+                "packageUris": [],
+                "version": "1.0",
+            },
+            "transaction-factory-ordinals": {},
         },
-    })
+    }
+    if corr_id:
+        payload["correlationId"] = corr_id
+    publish({"channel": resp_channel, "data": payload})
     return True
 
 
@@ -1066,6 +1736,20 @@ _REGFWK_RESPONSE_NAMES = {
     "setExtensionsMetadataToFile": "setExtensionsMetadataToFileResponse",
 }
 
+_REGFWK_CACHE: dict[str, Any] = {}
+
+
+def _get_regfwk_cache() -> dict[str, Any]:
+    global _REGFWK_CACHE
+    if not _REGFWK_CACHE:
+        cache_file = Path(__file__).resolve().parent / "regfwk_cache.json"
+        if cache_file.is_file():
+            try:
+                _REGFWK_CACHE = json.loads(cache_file.read_text(encoding="utf-8"))
+            except Exception:
+                _REGFWK_CACHE = {}
+    return _REGFWK_CACHE
+
 
 def handle_service(
     channel: str,
@@ -1100,18 +1784,18 @@ def handle_service(
     if "/shortcuts/model/services/request/" in channel:
         return _handle_shortcuts(channel, data, publish)
     # Resource framework (regfwk): request regfwk/apis/<op> → respuesta en
-    # regfwk/apis/<resp>/<clientId> correlacionada por uuid. Sin respuesta el
-    # cargador de plugins queda esperando y el desktop no termina de montar.
-    # El real devuelve el registro de extensiones.json de la instalación; el
-    # clon responde el caso vacío {"resourcesFilesData": [], "uuid": ...},
-    # válido en el wire y suficiente para que el boot continúe.
+    # regfwk/apis/<resp>/<clientId> correlacionada por uuid.
+    # Devuelve los plugins y extensiones cosechadas del wire real.
     if channel.startswith("/regfwk/apis/") and channel != "/regfwk/apis/start":
         op = channel[len("/regfwk/apis/"):]
         resp_name = _REGFWK_RESPONSE_NAMES.get(op, op)
         client_id = data.get("clientId") or ""
         payload: dict[str, Any] = {"uuid": data.get("uuid")}
         if op == "getResourceList":
-            payload["resourcesFilesData"] = []
+            specs = data.get("resourceSpecifications") or []
+            spec_key = json.dumps(specs, sort_keys=True)
+            cache = _get_regfwk_cache()
+            payload["resourcesFilesData"] = cache.get(spec_key, [])
         publish({
             "channel": f"/regfwk/apis/{resp_name}/{client_id}",
             "data": payload,
@@ -1124,8 +1808,30 @@ def handle_service(
         return _handle_fctrl(data, publish)
     if channel.startswith("/cmlink/"):
         return _handle_cmlink(channel, data, publish)
+    # Editor y Filesystem (WO-10)
+    if channel.endswith("/editor/systeminfoservice/request"):
+        return _handle_editor_systeminfo(data, publish)
+    if channel in ("/matlab/FileDataServiceChannel", "/FileDataServiceChannel"):
+        return _handle_file_data_service(data, publish)
+    if channel.startswith("/mlx/service/readRequest") or channel.startswith("/editor/service/readCode/request"):
+        return _handle_mlx_read(channel, data, publish)
+    if channel.startswith("/mlx/service/writeRequest"):
+        return _handle_mlx_write(channel, data, publish)
+    if channel.startswith("/codeanalyzer/requestChannel/"):
+        return _handle_codeanalyzer(data, publish)
+    if channel.endswith("/debugger/file_translation/request"):
+        return True
+    if channel.endswith("/editor/reflector"):
+        publish({"channel": "/userexecutionservice/onUserExecution", "data": {"uuid": str(uuid.uuid4())}})
+        return True
+    if "/prefdirChannel/Request" in channel:
+        return _handle_prefdir(data, publish)
+    if channel.endswith("/navigation/model/services/start"):
+        publish({"channel": "/navigation/model/services/started", "data": {}})
+        publish({"channel": "/navigation/model/services/stack", "data": {"index": 0, "positions": []}})
+        return True
     # mf.zero model sync (datamodels de filesystem, history, workspace…)
-    if isinstance(data.get("type"), str) and "ModelSynchronizer" in data["type"]:
+    if "lf-channel" in channel or (isinstance(data.get("type"), str) and "ModelSynchronizer" in data["type"]):
         return _handle_mfz_fetch(channel, data, publish)
     if channel in ("/editor/event-notification-request", "/editor/event-notification"):
         return _handle_event_notification(channel, data, publish)

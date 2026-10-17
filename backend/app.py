@@ -216,6 +216,17 @@ def _bayeux_handle(message: dict[str, Any]) -> list[dict[str, Any]]:
             elif subscription == "/matlab/WorkspaceBrowser":
                 _publish_bus_event({"channel": "/WorkspaceBrowser", "data": {"type": "servicesStarted"}}, client_id)
                 _publish_bus_event({"channel": "/WorkspaceBrowser", "data": {"Variables": [], "type": "SelectedVariablesChanged"}}, client_id)
+            elif subscription == "/matlab/filesystem/listfolder/started":
+                _publish_bus_event({"channel": "/filesystem/listfolder/started", "data": {"separator": 92}}, client_id)
+            elif subscription == "/matlab/filesystem/operations/started":
+                _publish_bus_event({"channel": "/filesystem/operations/started", "data": {}}, client_id)
+            elif subscription == "/matlab/filesystem/sourcecontrol/started":
+                _publish_bus_event({"channel": "/filesystem/sourcecontrol/started", "data": {}}, client_id)
+            elif subscription == "/matlab/file_searchservice/started":
+                _publish_bus_event({"channel": "/file_searchservice/started", "data": {}}, client_id)
+            elif subscription == "/matlab/navigation/model/services/started":
+                _publish_bus_event({"channel": "/navigation/model/services/started", "data": {}}, client_id)
+                _publish_bus_event({"channel": "/navigation/model/services/stack", "data": {"index": 0, "positions": []}}, client_id)
         else:
             state["subscriptions"].discard(subscription)
         return [{**ack, "clientId": client_id, "subscription": subscription}]

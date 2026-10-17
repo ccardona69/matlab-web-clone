@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+import tempfile
 from uuid import uuid4
 
 import pytest
@@ -306,4 +309,261 @@ def test_websocket_emits_status_output_and_command_response(client: TestClient) 
     assert "5050" in output["data"]["text"]
     assert response["channel"] == "commandResponse"
     assert response["data"]["requestID"] == request_id
+
+
+def test_wo10_filesystem_listfolder_and_operations_protocol(client: TestClient) -> None:
+    """WO-10: filesystem/listfolder/* y operations/* responden en */response con uuid correlado."""
+    handshake = client.post(
+        "/cometd",
+        json={"channel": "/meta/handshake", "version": "1.0", "supportedConnectionTypes": ["long-polling"], "id": "1"},
+    ).json()[0]
+    cid = handshake["clientId"]
+
+    for idx, ch in enumerate(["/matlab/filesystem/listfolder/response", "/matlab/filesystem/operations/response"], start=2):
+        client.post("/cometd", json={"channel": "/meta/subscribe", "clientId": cid, "subscription": ch, "id": str(idx)})
+
+    # 1. get-path-separator
+    uid_sep = "ListFolderService-TEST:1-/get-path-separator"
+    client.post("/cometd", json={"channel": "/matlab/filesystem/listfolder/get-path-separator", "clientId": cid, "id": "10", "data": {"uuid": uid_sep}})
+    events = client.post("/cometd", json={"channel": "/meta/connect", "clientId": cid, "id": "11"}).json()
+    resp = next(e for e in events if e.get("channel") == "/matlab/filesystem/listfolder/response" and e.get("data", {}).get("uuid") == uid_sep)
+    assert resp["data"]["separator"] == 92
+
+    # 2. operations/exists
+    uid_exists = "FileOperations-TEST:2-/exists"
+    client.post("/cometd", json={"channel": "/matlab/filesystem/operations/exists", "clientId": cid, "id": "12", "data": {"path": os.getcwd(), "uuid": uid_exists}})
+    events = client.post("/cometd", json={"channel": "/meta/connect", "clientId": cid, "id": "13"}).json()
+    resp = next(e for e in events if e.get("channel") == "/matlab/filesystem/operations/response" and e.get("data", {}).get("uuid") == uid_exists)
+    assert resp["data"]["exists"] is True
+    assert resp["data"]["isDirectory"] is True
+
+
+def test_wo10_fileinfo_shape_and_getchildren_in_tempdir(client: TestClient) -> None:
+    """WO-10: fileInfo shape verbatim y getchildren con archivos reales (.m, carpetas)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        m_file = Path(tmpdir) / "test_func.m"
+        m_file.write_text("function y = test_func(x)\ny = x * 2;\nend\n", encoding="utf-8")
+        sub_dir = Path(tmpdir) / "subpkg"
+        sub_dir.mkdir()
+
+        handshake = client.post(
+            "/cometd",
+            json={"channel": "/meta/handshake", "version": "1.0", "supportedConnectionTypes": ["long-polling"], "id": "1"},
+        ).json()[0]
+        cid = handshake["clientId"]
+        client.post("/cometd", json={"channel": "/meta/subscribe", "clientId": cid, "subscription": "/matlab/filesystem/listfolder/response", "id": "2"})
+
+        uid = "ListFolderService-TEST:3-/getchildren"
+        client.post("/cometd", json={
+            "channel": "/matlab/filesystem/listfolder/getchildren",
+            "clientId": cid,
+            "id": "3",
+            "data": {"path": tmpdir, "computeHasChildren": False, "uuid": uid},
+        })
+        events = client.post("/cometd", json={"channel": "/meta/connect", "clientId": cid, "id": "4"}).json()
+        resp = next(e for e in events if e.get("channel") == "/matlab/filesystem/listfolder/response" and e.get("data", {}).get("uuid") == uid)
+        data = resp["data"]
+        assert data["uuid"] == uid
+        folder = data["folder"]
+        assert folder["isDirectory"] is True
+        assert folder["separator"] == "\\"
+        assert folder["iri"].startswith("file:///")
+
+        contents = data["folderContents"]
+        m_entry = next(c for c in contents if c["name"] == "test_func.m")
+        assert m_entry["type"] == "m"
+        assert m_entry["isDirectory"] is False
+        assert m_entry["separator"] == "\\"
+        assert m_entry["filePermissions"]["canWrite"] is True
+        assert "file:///" in m_entry["iri"]
+
+        sub_entry = next(c for c in contents if c["name"] == "subpkg")
+        assert sub_entry["type"] == "Folder"
+        assert sub_entry["isDirectory"] is True
+
+
+def test_wo10_sandbox_restriction(client: TestClient) -> None:
+    """WO-10: Seguridad — pedir fuera del root configurado no debe devolver datos."""
+    from backend.e1_bus_services import _SAFE_ROOTS, set_filesystem_safe_roots
+
+    with tempfile.TemporaryDirectory() as safe_root, tempfile.TemporaryDirectory() as secret_root:
+        secret_file = Path(secret_root) / "secret.m"
+        secret_file.write_text("classified = true;", encoding="utf-8")
+
+        # Restringir safe roots solo al directorio seguro
+        set_filesystem_safe_roots([safe_root])
+        try:
+            # 1. messageservice/json OpenFile de archivo fuera de sandbox
+            resp = client.post("/messageservice/json", json={
+                "messages": {
+                    "OpenFile": [{"path": str(secret_file), "uuid": "TEST_SANDBOX_OPEN"}]
+                }
+            })
+            assert resp.status_code == 200
+            body = resp.json()
+            open_resp = body["messages"]["OpenFileResponse"][0]
+            assert "file" not in open_resp
+            assert open_resp["messageFaults"][0]["faultCode"] == "FileService.IOError"
+
+            # 2. filesystem getchildren fuera de sandbox
+            handshake = client.post(
+                "/cometd",
+                json={"channel": "/meta/handshake", "version": "1.0", "supportedConnectionTypes": ["long-polling"], "id": "1"},
+            ).json()[0]
+            cid = handshake["clientId"]
+            client.post("/cometd", json={"channel": "/meta/subscribe", "clientId": cid, "subscription": "/matlab/filesystem/listfolder/response", "id": "2"})
+            uid = "ListFolderService-TEST:SANDBOX-/getchildren"
+            client.post("/cometd", json={
+                "channel": "/matlab/filesystem/listfolder/getchildren",
+                "clientId": cid,
+                "id": "3",
+                "data": {"path": secret_root, "uuid": uid},
+            })
+            events = client.post("/cometd", json={"channel": "/meta/connect", "clientId": cid, "id": "4"}).json()
+            resp = next(e for e in events if e.get("channel") == "/matlab/filesystem/listfolder/response" and e.get("data", {}).get("uuid") == uid)
+            assert resp["data"]["folderContents"] == []
+        finally:
+            set_filesystem_safe_roots(None)
+
+
+def test_wo10_editor_systeminfo_service(client: TestClient) -> None:
+    """WO-10: /editor/systeminfoservice/request responde isWindows: True con uid correlado."""
+    handshake = client.post(
+        "/cometd",
+        json={"channel": "/meta/handshake", "version": "1.0", "supportedConnectionTypes": ["long-polling"], "id": "1"},
+    ).json()[0]
+    cid = handshake["clientId"]
+    client.post("/cometd", json={"channel": "/meta/subscribe", "clientId": cid, "subscription": "/matlab/editor/systeminfoservice/response", "id": "2"})
+
+    # isWindows
+    client.post("/cometd", json={
+        "channel": "/matlab/editor/systeminfoservice/request",
+        "clientId": cid,
+        "id": "3",
+        "data": {"uid": "SYS_WIN_1", "type": "isWindows", "data": ""},
+    })
+    events = client.post("/cometd", json={"channel": "/meta/connect", "clientId": cid, "id": "4"}).json()
+    resp = next(e for e in events if e.get("channel") == "/matlab/editor/systeminfoservice/response" and e.get("data", {}).get("uid") == "SYS_WIN_1")
+    assert resp["data"]["data"]["isWindows"] is True
+
+    # isRootUser
+    client.post("/cometd", json={
+        "channel": "/matlab/editor/systeminfoservice/request",
+        "clientId": cid,
+        "id": "5",
+        "data": {"uid": "SYS_ROOT_2", "type": "isRootUser", "data": ""},
+    })
+    events = client.post("/cometd", json={"channel": "/meta/connect", "clientId": cid, "id": "6"}).json()
+    resp = next(e for e in events if e.get("channel") == "/matlab/editor/systeminfoservice/response" and e.get("data", {}).get("uid") == "SYS_ROOT_2")
+    assert resp["data"]["data"]["isRootUser"] is False
+
+
+def test_wo10_editor_open_and_mlx_read_write(client: TestClient) -> None:
+    """WO-10: OpenFile via messageservice y lectura/escritura via /mlx/service/readRequest_cpp."""
+    import hashlib
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        m_file = Path(tmpdir) / "ejemplo1_regresion.m"
+        initial_code = "% Regresion lineal\nx = [1 2 3 4 5]';\ny = [2.1 3.9 6.2 8.1 9.9]';\np = polyfit(x, y, 1);\n"
+        m_file.write_text(initial_code, encoding="utf-8")
+
+        # 1. messageservice/json OpenFile
+        resp = client.post("/messageservice/json", json={
+            "messages": {
+                "OpenFile": [{"path": str(m_file), "uuid": "OPEN_REGRESION_1"}]
+            }
+        })
+        assert resp.status_code == 200
+        open_data = resp.json()["messages"]["OpenFileResponse"][0]
+        assert open_data["uuid"] == "OPEN_REGRESION_1"
+        assert open_data["file"]["content"] == initial_code
+        assert open_data["file"]["fileInfo"]["name"] == "ejemplo1_regresion.m"
+        assert open_data["file"]["fileInfo"]["type"] == "m"
+
+        # 2. Bayeux /mlx/service/readRequest_cpp
+        handshake = client.post(
+            "/cometd",
+            json={"channel": "/meta/handshake", "version": "1.0", "supportedConnectionTypes": ["long-polling"], "id": "1"},
+        ).json()[0]
+        cid = handshake["clientId"]
+        rtc_id = "RTC_MLX_READ_1"
+        resp_channel = f"/matlab/mlx/service/readResponse/{rtc_id}"
+        client.post("/cometd", json={"channel": "/meta/subscribe", "clientId": cid, "subscription": resp_channel, "id": "2"})
+
+        client.post("/cometd", json={
+            "channel": "/matlab/mlx/service/readRequest_cpp",
+            "clientId": cid,
+            "id": "3",
+            "data": {"rtcId": rtc_id, "filePath": str(m_file)},
+        })
+        events = client.post("/cometd", json={"channel": "/meta/connect", "clientId": cid, "id": "4"}).json()
+        read_resp = next(e for e in events if e.get("channel") == resp_channel)
+        data = read_resp["data"]
+        assert data["status"] is True
+        assert data["data"] == initial_code
+        expected_md5 = hashlib.md5(initial_code.encode("utf-8")).hexdigest()
+        assert data["checksum"] == expected_md5
+        assert data["encoding"] == "UTF-8"
+
+        # 3. Bayeux /mlx/service/writeRequest_cpp
+        new_code = initial_code + "plot(x, y, 'ro');\n"
+        write_rtc = "RTC_MLX_WRITE_2"
+        write_resp_channel = f"/matlab/mlx/service/writeResponse/{write_rtc}"
+        client.post("/cometd", json={"channel": "/meta/subscribe", "clientId": cid, "subscription": write_resp_channel, "id": "5"})
+
+        client.post("/cometd", json={
+            "channel": "/matlab/mlx/service/writeRequest_cpp",
+            "clientId": cid,
+            "id": "6",
+            "data": {"rtcId": write_rtc, "filePath": str(m_file), "content": new_code},
+        })
+        events = client.post("/cometd", json={"channel": "/meta/connect", "clientId": cid, "id": "7"}).json()
+        write_resp = next(e for e in events if e.get("channel") == write_resp_channel)
+        assert write_resp["data"]["status"] is True
+        assert m_file.read_text(encoding="utf-8") == new_code
+
+
+def test_wo10_filesystem_mfz_lf_channel_datamodel(client: TestClient) -> None:
+    """WO-10: mf.zero ModelSynchronizer sobre /matlab_filesystem_datamodel/lf-channel."""
+    handshake = client.post(
+        "/cometd",
+        json={"channel": "/meta/handshake", "version": "1.0", "supportedConnectionTypes": ["long-polling"], "id": "1"},
+    ).json()[0]
+    cid = handshake["clientId"]
+    lf_channel = "/matlab/matlab_filesystem_datamodel/lf-channel"
+    client.post("/cometd", json={"channel": "/meta/subscribe", "clientId": cid, "subscription": lf_channel, "id": "2"})
+
+    req_client = "client-uuid-1234"
+    corr_id = "corr-uuid-5678"
+    model_id = "model-uuid-9999"
+    client.post("/cometd", json={
+        "channel": lf_channel,
+        "clientId": cid,
+        "id": "3",
+        "data": {
+            "type": "mf.zero.io.ModelSynchronizer.FetchModelWithDataDefinition",
+            "client": req_client,
+            "correlationId": corr_id,
+            "content": {
+                "modelId": model_id,
+                "endpointsImplemented": [],
+                "transaction-factory-ordinals": {},
+            },
+        },
+    })
+    events = client.post("/cometd", json={"channel": "/meta/connect", "clientId": cid, "id": "4"}).json()
+    resp = next(e for e in events if e.get("channel") == lf_channel)
+    data = resp["data"]
+    assert data["type"] == "mf.zero.io.ModelSynchronizer.ModelWithDataDefinition"
+    assert data["client"] == req_client
+    assert data["correlationId"] == corr_id
+    content = data["content"]
+    assert content["modelId"] == model_id
+    definitions = content["definitions"]
+    assert len(definitions) == 1
+    assert definitions[0]["family"] == "filesystem_datamodel_base"
+    assert definitions[0]["modelVersion"] == "R2020b"
+    assert "entries" in content["model"]
+    assert len(content["model"]["entries"]) > 0
+
 
