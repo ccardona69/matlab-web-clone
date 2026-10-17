@@ -67,7 +67,21 @@ El texto llega por separado de la respuesta de `eval`; ambos pueden compartir `r
 
 ### Otras operaciones estructuralmente observadas
 
-`feval` usa `function`, `rhsArgs`, `numOutputsExpected` y opcionalmente `mdaOutputFormat`; cancelación usa `requestIDtoCancel`, cancelación agrupada usa `requestGroupNametoCancel` y puede incluir `interrupt`. Estas rutas se catalogan para orientar futuras compatibilidades; el clon de esta entrega solo ejecuta `eval`.
+`feval` usa `function`, `rhsArgs`, `numOutputsExpected`, `runOptions` (`dequeueMode`, `useNullErrSink`, `eventConnections`) y opcionalmente `mdaOutputFormat`; cancelación usa `requestIDtoCancel`, cancelación agrupada usa `requestGroupNametoCancel` y puede incluir `interrupt`. WO-07 implementa `feval` (`eval`/`evalin` evalúan el arg de cadena; el resto construye la llamada), `mvmSinks`, `subscribeEvent` y `disconnectEvent` (ver `backend/e1_bus_services.py`). Cancelación sigue pendiente.
+
+### Servicios del escritorio respondidos (WO-07)
+
+Además del bus MVM, el shell publica peticiones request→response en otros
+canales Bayeux que WO-07 responde correlacionadas:
+
+| Canal (sin prefijo `/matlab`) | Respuesta |
+|---|---|
+| `/editor/event-notification-request` | publica en `data.messageChannel` (p. ej. `/executionstateservice/hasinitialized`) `{dataMap:{isInitialized}, requesterId}` para desbloquear `ExecutionStateService` (`>>` Ready) |
+| `/matlab/settingsChannel/Request` | `data.channel` (`/matlab/settingsChannel/Response/<uuid>`) con `{type:<X>Response, uuid, makeCompatible, settingData}` y defaults de fuentes/tema/colores |
+| `/shortcuts/model/services/request/{op}/...` | `/shortcuts/model/services/ack` + `/shortcuts/model/services/response/{op}/...` con `{uid, clientId, requestId, responseId, status:true, payload}` |
+| `/regfwk/apis/getResourceList` | `/regfwk/apis/resourceList/<clientId>` con `{resourcesFilesData:[], uuid}` |
+| `/fctrl/addcb` | `/fctrl/response/addcb` con `{FCtrlState, defaultValue, id, name, scope, value}` |
+| `/filesystem/listfolder/*` | `/filesystem/listfolder/started` y `/filesystem/listfolder/response` correlacionado por `uuid` |
 
 ## Tópicos de alto nivel y nombres de UI
 

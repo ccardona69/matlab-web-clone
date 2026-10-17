@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import os
 import time
 from collections import deque
 from typing import Any
@@ -178,8 +179,16 @@ def serve_real_webgui(relpath: str = "") -> FileResponse:
     `/mw/` sin path devuelve index-nologin.html (modo desktop sin login); los
     recursos relativos `release/...` resuelven dentro del mismo prefijo, así el
     bundle de 18MB + CSS + fuentes funcionan sin copiar nada al repo.
+
+    E1_SHELL=jsd cambia el default a index-jsd.html (JavaScript Desktop, el
+    shell clásico de MATLABWindow pensado para hablar con el connector real;
+    combina con MATLAB_CONNECTOR_URL para el modo oráculo).
     """
-    rel = relpath or "index-nologin.html"
+    _SHELL_FILES = {"nologin": "index-nologin.html", "jsd": "index-jsd.html"}
+    default_shell = _SHELL_FILES.get(
+        os.environ.get("E1_SHELL", "").strip().lower(), "index-nologin.html"
+    )
+    rel = relpath or default_shell
     try:
         target = _resolve_under_root(f"{_WEBGUI_SRC}/{rel}")
     except HTTPException as exc:

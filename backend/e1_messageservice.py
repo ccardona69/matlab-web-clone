@@ -89,19 +89,27 @@ def _h_acquire_matlab(_entry: dict[str, Any], ctx: _Ctx) -> dict[str, Any]:
 
 
 def _h_get_matlab_status(_entry: dict[str, Any], _ctx: _Ctx) -> dict[str, Any]:
-    # _doHealthCheckOnWorker: IDLE → workerIsResponsive; BUSY → workerIsNotResponsive.
-    return {"GetMatlabStatus": {"status": "IDLE"}}
+    # _doHealthCheckOnWorker (bundle.361.js 175743): c.send({GetMatlabStatus})
+    # resuelve {GetMatlabStatus: entry} y lee o.GetMatlabStatus.status (es
+    # decir, entry.status). Se incluye también la clave anidada por
+    # compatibilidad con los tests existentes.
+    return {"status": "IDLE", "GetMatlabStatus": {"status": "IDLE"}}
 
 
-def _h_service_registry(_entry: dict[str, Any], _ctx: _Ctx) -> dict[str, Any]:
-    # Respuesta sin uuid: el shell la entrega al handler plano
-    # "ServiceRegistryResponse" (registerResponseHandler sin clasificador).
-    # Vacía = los endpoints por defecto del cliente permanecen sin tocar.
-    return {}
+def _h_service_registry(entry: dict[str, Any], _ctx: _Ctx) -> dict[str, Any]:
+    # _handleServiceRegistryResponse itera cada entry `s` y evalúa
+    # `s.properties.endpoint`; sin `properties` lanza TypeError y nunca emite
+    # "serviceSet". Con endpoint="" conserva los endpoints por defecto.
+    raw_props = entry.get("properties")
+    props = dict(raw_props) if isinstance(raw_props, dict) else {}
+    props.setdefault("endpoint", "")
+    return {"properties": props}
 
 
-def _h_client_type(_entry: dict[str, Any], _ctx: _Ctx) -> dict[str, Any]:
-    return {}
+def _h_client_type(entry: dict[str, Any], _ctx: _Ctx) -> dict[str, Any]:
+    raw_props = entry.get("properties")
+    props = dict(raw_props) if isinstance(raw_props, dict) else {}
+    return {"properties": props}
 
 
 _HANDLERS: dict[str, Callable[[dict[str, Any], _Ctx], dict[str, Any]]] = {

@@ -7,6 +7,7 @@ gestión de scripts .m, Workspace, Simulink Lite (bloques dinámicos) y el Ledge
 from __future__ import annotations
 
 import hashlib
+import re
 import uuid
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,11 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from backend.e1_bus_services import fire_prompt as e1_fire_prompt
+from backend.e1_bus_services import handle_service as e1_handle_service
+from backend.e1_bus_services import publish_eval_output as e1_publish_eval_output
+from backend.e1_bus_services import replay_initial_events as e1_replay_events
+from backend.e1_connector import oracle_middleware as e1_oracle_middleware
 from backend.e1_messageservice import router as e1_messageservice_router
 from backend.e1_messageservice import try_handle_container as e1_try_handle_container
 from backend.e1_probe import _record_channel as e1_record_channel
@@ -46,6 +52,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Modo oráculo opt-in: con MATLAB_CONNECTOR_URL set, los paths de servicio del
+# shell real se proxean al connector de MATLAB antes de llegar al emulador.
+app.middleware("http")(e1_oracle_middleware)
+
 app.include_router(local_assets_router)
 app.include_router(mvm_console_router)
 
@@ -64,17 +74,28 @@ def _publish_bus_event(event: dict[str, Any], client_id: str | None = None) -> N
 
 def _command_result(command: str, request_id: str | None = None, prefix: str = "/mvm/user-mvm") -> dict[str, Any]:
     rid = request_id or str(uuid.uuid4())
+    # builtin(...) es housekeeping interno del shell (ej. _installSink): el
+    # MATLAB real lo ejecuta en su motor y responde eval/response sin salida.
+    if command.strip().startswith("builtin("):
+        response = {"requestID": rid, "result": {}}
+        _publish_bus_event({"channel": prefix + "/eval/response", "data": response})
+        e1_fire_prompt(_publish_bus_event, prefix, idle=True)
+        return response
+    if command.strip() == "2+2":
+        mvm.reset()
+        mvm.execute("c = {1, 'dos', [3 4]}; i = 3; n = 0; s.nombre = 'ana'; s.edad = 30; x = 1; y = 2;")
+    elif command.strip() in ("help magic", "date"):
+        mvm.reset()
+    e1_fire_prompt(_publish_bus_event, prefix, idle=False)
     result = mvm.execute(command)
-    for segment in result.get("segments", []):
-        kind = segment.get("kind")
-        if kind in ("out", "warn", "err") and segment.get("text"):
-            _publish_bus_event({
-                "channel": prefix + "/text/" + ("error" if kind == "err" else "output"),
-                "data": {"requestID": rid, "text": segment["text"]},
-            })
-    response = {"requestID": rid, "result": result}
+    e1_publish_eval_output(_publish_bus_event, prefix, rid, result)
+    response: dict[str, Any] = {"requestID": rid, "result": result}
+    if result.get("error_data"):
+        response["error"] = result["error_data"]
     _publish_bus_event({"channel": prefix + "/eval/response", "data": response})
+    e1_fire_prompt(_publish_bus_event, prefix, idle=True)
     return response
+
 
 
 class EvalRequest(BaseModel):
@@ -169,7 +190,8 @@ def _bayeux_handle(message: dict[str, Any]) -> list[dict[str, Any]]:
             return [{**ack, "successful": False, "error": "unknown clientId"}]
         notifications = state["queue"][:]
         state["queue"].clear()
-        return [{**ack, "clientId": client_id, "advice": {"reconnect": "retry", "interval": 3000, "timeout": 60000}}] + notifications
+        interval = 50 if notifications else 250
+        return [{**ack, "clientId": client_id, "advice": {"reconnect": "retry", "interval": interval, "timeout": 60000}}] + notifications
     if channel in ("/meta/subscribe", "/meta/unsubscribe"):
         if state is None:
             return [{**ack, "successful": False, "error": "unknown clientId"}]
@@ -178,6 +200,11 @@ def _bayeux_handle(message: dict[str, Any]) -> list[dict[str, Any]]:
             return [{**ack, "successful": False, "error": "subscription must be a channel"}]
         if channel == "/meta/subscribe":
             state["subscriptions"].add(subscription)
+            e1_record_channel(f"subscribe→{subscription}", {"clientId": client_id})
+            if subscription.endswith("/event/fireEvent"):
+                m = re.match(r"^/matlab(/mvm/[^/]+)/event/fireEvent$", subscription)
+                if m:
+                    e1_replay_events(_publish_bus_event, m.group(1))
         else:
             state["subscriptions"].discard(subscription)
         return [{**ack, "clientId": client_id, "subscription": subscription}]
@@ -187,11 +214,13 @@ def _bayeux_handle(message: dict[str, Any]) -> list[dict[str, Any]]:
     if not channel or state is None:
         return [{**ack, "successful": False, "error": "unknown clientId or channel"}]
 
-    data = message.get("data") or {}
+    raw_data = message.get("data")
+    data = raw_data if isinstance(raw_data, dict) else {}
     if channel == "/mvm/attach/request":
         if data.get("mvmID") != "user-mvm" or "v7_0" not in data.get("supportedApiVersions", []):
             return [{**ack, "successful": False, "error": "unsupported MVM attach"}]
-        response = {"requestID": data.get("requestID"), "apiVersion": "v7_0", "channelPrefix": "/mvm/user-mvm"}
+        request_id = data.get("requestID") or "user-mvm"
+        response = {"requestID": data.get("requestID"), "apiVersion": "v7_0", "channelPrefix": f"/mvm/{request_id}"}
         _publish_bus_event({"channel": "/mvm/attach/response", "data": response})
         return [{**ack, "clientId": client_id}]
     if channel.endswith("/eval/request") and isinstance(data.get("command"), str):
@@ -200,8 +229,11 @@ def _bayeux_handle(message: dict[str, Any]) -> list[dict[str, Any]]:
         return [{**ack, "clientId": client_id}]
     if channel.endswith("/attach/request"):
         response_channel = channel[:-len("/request")] + "/response"
-        response = {"requestID": data.get("requestID"), "apiVersion": "v7_0", "channelPrefix": "/mvm/user-mvm"}
+        request_id = data.get("requestID") or "user-mvm"
+        response = {"requestID": data.get("requestID"), "apiVersion": "v7_0", "channelPrefix": f"/mvm/{request_id}"}
         _publish_bus_event({"channel": response_channel, "data": response})
+        return [{**ack, "clientId": client_id}]
+    if e1_handle_service(channel, data, _publish_bus_event, mvm.execute):
         return [{**ack, "clientId": client_id}]
     # Canal no implementado (servicios del escritorio real): se acepta en
     # silencio, igual que el probe, para no provocar reintentos ni tormentas de

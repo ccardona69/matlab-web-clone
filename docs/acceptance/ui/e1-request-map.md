@@ -128,3 +128,41 @@ Claves verificadas:
 - Feature flags (`CombinedEditor`, `LiveEditorPagination`): timeout → default `false`.
 - `shortcuts` (`request/add/global` ×82) y `settingsChannel/Request` ×143: protocolos
   petición–respuesta por Bayeux sin respuesta (reintentan); candidatos a stub.
+
+---
+
+## Iteración 3 — servicios del bus respondidos + modo oráculo (2026-10-17)
+
+Con `backend/e1_bus_services.py` (WO-07) los canales request→response que el
+shell publica tras el attach MVM ya obtienen respuesta correlacionada:
+
+| Canal (wire, cliente → backend) | Payload observado | Respuesta publicada |
+|---|---|---|
+| `/matlab/mvm/attach/request` | `{mvmID:"user-mvm", supportedApiVersions:["v7_0"], requestID}` | `/matlab/mvm/attach/response` con `channelPrefix="/mvm/<requestID>"` (dinámico por sesión) |
+| `/matlab/mvm/{id}/feval/request` | `{function, rhsArgs[], numOutputsExpected, runOptions:{dequeueMode,useNullErrSink,eventConnections}, requestID}` | `feval/response` (`result:[...]`) + `text/output`/`text/error` + `mvmSinks/output`; `function=eval`/`evalin` evalúa el arg; namespaces internos (`connector.*`, `simulink.*`, `matlab.*`) responden no-op |
+| `/matlab/mvm/{id}/eval/request` | `{command, isUserEval, requestID}` (incluye housekeeping `builtin('_installSink', true);` y comandos de usuario como `2+2`) | `eval/response` + `text/output` + `mvmSinks/output` + `event/fireEvent` (`PromptEvent` Busy→Idle) |
+| `/matlab/mvm/{id}/mvmSinks/request` | `{outSinkTraits:{...}, errSinkTraits:{...}, requestID}` | `mvmSinks/response` |
+| `/matlab/mvm/{id}/subscribeEvent/request` | `{eventName, requestID}` (`mlutil::prompt::PromptEvent`, `mlutil::prompt::PromptEvent\|\|UserGroup`, `mvm_events::ClientCapabilityEvent`, etc.) | `subscribeEvent/response` + disparo inmediato en `{prefix}/event/fireEvent` con `PromptEvent` (`isIdle:true`, `requester:"BASE_PROMPT"`) |
+| `/matlab/mvm/{id}/disconnectEvent/request` | `{requestIDtoDisconnect, requestID}` | `disconnectEvent/response` |
+| `/matlab/editor/event-notification-request` | `{messageChannel:"/executionstateservice/hasinitialized", requesterId}` | publica en `/matlab/executionstateservice/hasinitialized` `{dataMap:{isInitialized}, requesterId}` (**gate crítico**: desbloquea `ExecutionStateService` para pasar de `Initializing prompt` a `Ready prompt` `>>`) |
+| `/matlab/matlab/settingsChannel/Request` | `GetSettingMessage`, `GetSettingsMessage`, `GetAllSettingsMessage`, `SetSettingMessage`, `ClearSettingMessage`, `GetMessage`, `AddListenerMessage` | `data.channel` (`/matlab/settingsChannel/Response/<uuid>`) con defaults reales de fuentes RTC (`Monospaced`, `10pt`), tema (`Light`) y colores |
+| `/matlab/shortcuts/model/services/request/*` | `{uid, clientId, requestId, payload}` | `/matlab/shortcuts/model/services/ack` + `response/{op}/...` con `responseId` secuencial (`0, 1, 2...`) y `status:true` |
+| `/matlab/regfwk/apis/getResourceList` | `{uuid, clientId, resourceSpecifications}` | `/matlab/regfwk/apis/resourceList/<clientId>` con `{resourcesFilesData:[], uuid}` |
+| `/matlab/fctrl/addcb` | `{id, name, mvm}` | `/matlab/fctrl/response/addcb` con `{FCtrlState, defaultValue, id, name, scope, value}` |
+| `/matlab/filesystem/listfolder/*` | `start`, `get-path-separator`, `getprocesscwd`, `getfilesystemroots`, `get-iri`, `watch`, `getchildren` | `listfolder/started` o `listfolder/response` correlacionado por `uuid` |
+| `*` con `type: "mf.zero.io.ModelSynchronizer.*"` | `FetchModel` / `FetchModelWithDataDefinition` (`lf-channel`, `MF0ViewModelManagerServer`, `toServer`) | canal espejo (`Client`, `out`, `toClient`) con modelo mínimo vacío |
+
+### Resultado verificado en navegador (iteración 3)
+
+- Arranque completo en ~12 s (`advice.interval` dinámico: `50 ms` con cola activa, `250 ms` en reposo).
+- El DOM alcanza `<div data-state="ready">Ready prompt</div>`, `<span class="promptNode active">&gt;&gt; </span>` y `<span class="mwTextLine">Ready</span>` en la barra de estado, **100% contra el backend Python propio** (sin MATLAB connector).
+- Evaluación interactiva verificada desde el Command Window real: `2+2` → `/matlab/mvm/<id>/eval/request` (`isUserEval: true`) evaluado por `backend/mvm_engine.py`.
+
+### Modo oráculo (WO-07)
+
+`MATLAB_CONNECTOR_URL` activa un middleware que proxeé los paths de servicio al
+connector real de MATLAB (strip `Origin`/`Referer`, verify=False, timeout=300s
+para long-poll). `/ui/*`,`/toolbox/*`,`/sys/*` siguen saliendo del disco local
+cuando el archivo existe. `E1_SHELL=jsd` sirve `index-jsd.html`. Con MATLAB
+vivo (`connector.ensureServiceOn`) permite capturar el wire auténtico en
+`/api/e1/request-log` y compararlo 1:1 con las respuestas del emulador.
