@@ -7,6 +7,7 @@ gestión de scripts .m, Workspace, Simulink Lite (bloques dinámicos) y el Ledge
 from __future__ import annotations
 
 import hashlib
+import io
 import re
 import uuid
 from pathlib import Path
@@ -15,21 +16,24 @@ from typing import Any
 import numpy as np
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from backend.e1_bus_services import clear_figure_uuids as e1_clear_figure_uuids
 from backend.e1_bus_services import fire_prompt as e1_fire_prompt
 from backend.e1_bus_services import handle_service as e1_handle_service
 from backend.e1_bus_services import publish_eval_output as e1_publish_eval_output
+from backend.e1_bus_services import publish_figure_created as e1_publish_figure_created
 from backend.e1_bus_services import publish_workspace_variables as e1_publish_ws_vars
-from backend.e1_bus_services import set_workspace_provider as e1_set_ws_provider
 from backend.e1_bus_services import replay_initial_events as e1_replay_events
+from backend.e1_bus_services import set_workspace_provider as e1_set_ws_provider
 from backend.e1_connector import oracle_middleware as e1_oracle_middleware
 from backend.e1_messageservice import router as e1_messageservice_router
 from backend.e1_messageservice import try_handle_container as e1_try_handle_container
 from backend.e1_probe import _record_channel as e1_record_channel
 from backend.e1_probe import router as e1_probe_router
+from backend.hg_graphics import THEMES
 from backend.local_assets import console_router as mvm_console_router
 from backend.local_assets import router as local_assets_router
 from backend.matlab.display import value_summary
@@ -68,12 +72,28 @@ _bus_clients: dict[str, dict[str, Any]] = {}
 _bus_websockets: set[WebSocket] = set()
 
 
+def _channel_matches(sub: str, channel: str) -> bool:
+    if sub == channel:
+        return True
+    if sub.endswith("/**"):
+        prefix = sub[:-3]
+        return channel == prefix or channel.startswith(prefix + "/")
+    if sub.endswith("/*"):
+        prefix = sub[:-2]
+        if channel.startswith(prefix + "/"):
+            remainder = channel[len(prefix) + 1 :]
+            return "/" not in remainder
+    return False
+
+
 def _publish_bus_event(event: dict[str, Any], client_id: str | None = None) -> None:
     wire_event = {**event, "channel": "/matlab" + event["channel"]}
     for cid, state in _bus_clients.items():
         if client_id is None or cid == client_id:
-            if wire_event["channel"] in state["subscriptions"]:
-                state["queue"].append(wire_event)
+            for sub in state["subscriptions"]:
+                if _channel_matches(sub, wire_event["channel"]):
+                    state["queue"].append(wire_event)
+                    break
 
 
 def _command_result(command: str, request_id: str | None = None, prefix: str = "/mvm/user-mvm") -> dict[str, Any]:
@@ -87,9 +107,11 @@ def _command_result(command: str, request_id: str | None = None, prefix: str = "
         return response
     if command.strip() == "2+2":
         mvm.reset()
+        e1_clear_figure_uuids()
         mvm.execute("c = {1, 'dos', [3 4]}; i = 3; n = 0; s.nombre = 'ana'; s.edad = 30; x = 1; y = 2;")
     elif command.strip() in ("help magic", "date"):
         mvm.reset()
+        e1_clear_figure_uuids()
     e1_fire_prompt(_publish_bus_event, prefix, idle=False)
     result = mvm.execute(command)
     e1_publish_eval_output(_publish_bus_event, prefix, rid, result)
@@ -100,6 +122,10 @@ def _command_result(command: str, request_id: str | None = None, prefix: str = "
     e1_fire_prompt(_publish_bus_event, prefix, idle=True)
     # WO-09: tras cada eval el Workspace Browser espera la sync de variables.
     e1_publish_ws_vars(_publish_bus_event, mvm.get_workspace_summary())
+    # WO-11: tras cada eval publicar figuras creadas o actualizadas.
+    figures = result.get("figures") or []
+    for fig in figures:
+        e1_publish_figure_created(_publish_bus_event, fig["number"], fig.get("name", ""))
     return response
 
 
@@ -365,6 +391,7 @@ def get_variable_detail(name: str) -> dict[str, Any]:
 @app.post("/api/mvm/reset")
 def reset_mvm() -> dict[str, Any]:
     mvm.reset()
+    e1_clear_figure_uuids()
     return {"ok": True, "workspace": [], "figures": []}
 
 
@@ -526,6 +553,43 @@ def inspect_installed_matlab_file(req: ArtifactInspectRequest) -> dict[str, Any]
         "authority": "shipped-artifact",
         "confidence": "observed",
     }
+
+
+# ---------------------------------------------------------------------------
+# Figuras Handle Graphics (WO-11)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/figures")
+def get_all_figures() -> list[dict[str, Any]]:
+    return mvm.graphics.render_all()
+
+
+@app.get("/api/figure/{number}")
+def get_figure_meta(number: int) -> dict[str, Any]:
+    if number not in mvm.graphics.figures:
+        raise HTTPException(status_code=404, detail=f"Figura {number} no encontrada")
+    return mvm.graphics.render(number)
+
+
+@app.get("/api/figure/{number}/image")
+def get_figure_image(number: int, theme: str = "light") -> Response:
+    if number not in mvm.graphics.figures:
+        raise HTTPException(status_code=404, detail=f"Figura {number} no encontrada")
+    import base64
+    meta = mvm.graphics.render(number, theme=theme)
+    raw_b64 = meta["image_data_url"].split(",", 1)[1]
+    return Response(content=base64.b64decode(raw_b64), media_type="image/png")
+
+
+@app.get("/mw/undocked-container.html")
+@app.get("/undocked-container.html")
+def serve_undocked_figure_container(request: Request) -> Response:
+    """Sirve la ventana de figura propia (WO-11) en lugar del contenedor C++ ausente."""
+    container_html = FRONTEND_DIR / "undocked-container.html"
+    if container_html.exists():
+        return FileResponse(str(container_html))
+    return HTMLResponse("<h3>MATLAB Figure Container</h3>")
 
 
 if FRONTEND_DIR.exists():

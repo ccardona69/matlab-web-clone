@@ -1726,6 +1726,76 @@ def publish_workspace_variables(publish: Publish,
              "data": {"Variables": [], "type": "SelectedVariablesChanged"}})
 
 
+# ---------------------------------------------------------------------------
+# Figuras Handle Graphics (WO-11)
+# ---------------------------------------------------------------------------
+
+_FIGURE_UUIDS: dict[int, str] = {}
+
+
+def get_figure_uuid(number: int) -> str:
+    if number not in _FIGURE_UUIDS:
+        _FIGURE_UUIDS[number] = str(uuid.uuid4())
+    return _FIGURE_UUIDS[number]
+
+
+def clear_figure_uuids() -> None:
+    _FIGURE_UUIDS.clear()
+
+
+def publish_figure_created(
+    publish: Publish,
+    number: int,
+    name: str = "",
+    position: list[int] | None = None,
+    docked: bool = True,
+    undock_in_window: bool = False,
+) -> str:
+    """Publica figureContainerDefault y gbtweb/divfigure/figureCreated (WO-11)."""
+    is_new = number not in _FIGURE_UUIDS
+    fig_uuid = get_figure_uuid(number)
+    pos = position or [423, 230, 1074, 647]
+    title = f"Figure {number}" if (not name or name == f"Figure {number}") else f"Figure {number}: {name}"
+
+    if is_new:
+        publish({
+            "channel": "/figureContainerDefault",
+            "data": {
+                "launchUndockedWindow": 1,
+                "defaultFigurePosition": pos,
+            },
+        })
+        publish({
+            "channel": "/gbtweb/divfigure/figureCreated",
+            "data": {
+                "ClientToServer": "/embeddedfigure/ClientToServer",
+                "ServerToClient": "/embeddedfigure/ServerToClient",
+                "channel": f"/uifigure/{fig_uuid}",
+                "Uuid": fig_uuid,
+                "Position": pos,
+                "Title": title,
+                "IconView": "C:\\Program Files\\MATLAB\\R2026b\\toolbox\\matlab\\uitools\\uicomponents\\resources\\images\\figure_48.png",
+                "Visible": True,
+                "Resize": True,
+                "WindowState": "normal",
+                "WindowStyle": "docked" if docked else "normal",
+                "DefaultTools": "toolstrip",
+                "undockInWindow": undock_in_window,
+                "IsUiFigure": False,
+            },
+        })
+    else:
+        publish({
+            "channel": f"/uifigure/{fig_uuid}",
+            "data": {
+                "type": "figureRefresh",
+                "figureNumber": number,
+                "title": title,
+            },
+        })
+    return fig_uuid
+
+
 # Canal de respuesta por operación regfwk (visto en las suscripciones del
 # shell real: suscribe todos los canales <op>/<clientId> por adelantado).
 _REGFWK_RESPONSE_NAMES = {
@@ -1850,6 +1920,27 @@ def handle_service(
     # Canales auxiliares del WSB (acciones, context menu, updates) y servicios
     # peer del documento 'who': ack silencioso para no provocar reintentos.
     if channel.startswith(("/WSB", "/WorkspaceBrowser", "/ML/WorkspaceBrowser")):
+        return True
+    # Figuras embebidas y contenedor undocked (WO-11)
+    if (
+        channel.startswith((
+            "/gbtweb/divfigure/",
+            "/uifigure/",
+            "/embeddedfigure/",
+            "/embedded/figure/",
+            "/mg2web/",
+            "/mlapp/figure",
+            "/channel/webwindow",
+        ))
+        or channel in (
+            "/motw/uicontainer",
+            "/figureContainerDefault",
+            "/updateUndockInWindowFigureContainer",
+            "/embeddedfigure/ClientToServer",
+            "/embeddedfigure/ServerToClient",
+        )
+        or (len(channel.split("/")) == 3 and channel.endswith("/uicontainer"))
+    ):
         return True
     # Clipboard service: requestAvailableDataFlavors → sendAvailableDataFlavors/<uid>
     if channel == "/v2/clipboardservice/requestAvailableDataFlavors":

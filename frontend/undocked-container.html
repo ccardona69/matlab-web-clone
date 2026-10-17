@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Figure 1</title>
+  <style>
+    :root {
+      --mw-bg-main: #f5f5f5;
+      --mw-bg-surface: #ffffff;
+      --mw-border: #d0d0d0;
+      --mw-text: #212121;
+      --mw-text-secondary: #616161;
+      --mw-blue: #005a9c;
+      --mw-blue-hover: #004578;
+      --mw-toolbar-bg: #f0f0f0;
+      --mw-btn-hover: #e0e0e0;
+      --mw-btn-active: #d0d0d0;
+    }
+    body.dark {
+      --mw-bg-main: #1e1e1e;
+      --mw-bg-surface: #252526;
+      --mw-border: #3c3c3c;
+      --mw-text: #cccccc;
+      --mw-text-secondary: #999999;
+      --mw-blue: #0e639c;
+      --mw-blue-hover: #1177bb;
+      --mw-toolbar-bg: #2d2d2d;
+      --mw-btn-hover: #3e3e42;
+      --mw-btn-active: #4e4e52;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--mw-bg-main);
+      color: var(--mw-text);
+      display: flex;
+      flex-direction: column;
+    }
+    /* Toolbar */
+    .figure-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background: var(--mw-toolbar-bg);
+      border-bottom: 1px solid var(--mw-border);
+      user-select: none;
+    }
+    .figure-title-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      margin-right: 12px;
+      color: var(--mw-text);
+    }
+    .figure-icon {
+      width: 16px;
+      height: 16px;
+    }
+    .tb-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      padding: 4px 8px;
+      font-size: 12px;
+      color: var(--mw-text);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .tb-btn:hover {
+      background: var(--mw-btn-hover);
+      border-color: var(--mw-border);
+    }
+    .tb-btn:active, .tb-btn.active {
+      background: var(--mw-btn-active);
+      border-color: var(--mw-blue);
+    }
+    .tb-separator {
+      width: 1px;
+      height: 18px;
+      background: var(--mw-border);
+      margin: 0 4px;
+    }
+    .tb-spacer {
+      flex: 1;
+    }
+    .tb-status {
+      font-size: 11px;
+      color: var(--mw-text-secondary);
+    }
+    /* Main viewport */
+    .figure-viewport {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow: auto;
+      background: var(--mw-bg-surface);
+    }
+    .figure-canvas-container {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      border: 1px solid var(--mw-border);
+      border-radius: 4px;
+      background: #ffffff;
+      max-width: 100%;
+      max-height: 100%;
+    }
+    .figure-image {
+      display: block;
+      max-width: 100%;
+      max-height: 85vh;
+      height: auto;
+      object-fit: contain;
+    }
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      color: var(--mw-text-secondary);
+      font-size: 14px;
+    }
+    /* Footer */
+    .figure-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 3px 10px;
+      background: var(--mw-toolbar-bg);
+      border-top: 1px solid var(--mw-border);
+      font-size: 11px;
+      color: var(--mw-text-secondary);
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="figure-toolbar">
+    <div class="figure-title-badge">
+      <svg class="figure-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="2" width="14" height="12" rx="1.5" fill="#005A9C" />
+        <path d="M3 10L6 5L9 9L13 4" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        <circle cx="6" cy="5" r="1.2" fill="#FFC000" />
+        <circle cx="9" cy="9" r="1.2" fill="#FFC000" />
+        <circle cx="13" cy="4" r="1.2" fill="#FFC000" />
+      </svg>
+      <span id="fig-title">Figure 1</span>
+    </div>
+    <div class="tb-separator"></div>
+    <button class="tb-btn" id="btn-save" title="Exportar figura como PNG">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M2 2v12h12V4.5L11.5 2H2zm1 1h8v3H3V3zm0 5h10v5H3V8z"/>
+      </svg>
+      Exportar
+    </button>
+    <button class="tb-btn" id="btn-grid" title="Alternar rejilla">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M1 2v12h14V2H1zm1 1h3v3H2V3zm4 0h4v3H6V3zm5 0h3v3h-3V3zM2 7h3v3H2V7zm4 0h4v3H6V7zm5 0h3v3h-3V7zM2 11h3v2H2v-2zm4 0h4v2H6v-2zm5 0h3v2h-3v-2z"/>
+      </svg>
+      Grid
+    </button>
+    <button class="tb-btn" id="btn-home" title="Restablecer vista original">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 2l6 5v7h-4v-4H6v4H2V7l6-5z"/>
+      </svg>
+      Reset
+    </button>
+    <div class="tb-separator"></div>
+    <button class="tb-btn" id="btn-refresh" title="Refrescar figura">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+        <path d="M8 1v4l3-2-3-2z"/>
+      </svg>
+      Refrescar
+    </button>
+    <div class="tb-spacer"></div>
+    <span class="tb-status" id="fig-status">Rendered via Agg Handle Graphics</span>
+  </div>
+
+  <div class="figure-viewport">
+    <div class="figure-canvas-container" id="canvas-container">
+      <img id="figure-img" class="figure-image" src="/api/figure/1/image" alt="MATLAB Figure" />
+    </div>
+  </div>
+
+  <div class="figure-footer">
+    <span id="footer-engine">Handle Graphics Engine: Matplotlib Agg • ColorOrder: MATLAB R2026b</span>
+    <span id="footer-res">560 × 420 px</span>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const containerId = params.get("id") || "defaultfigure";
+    const figNum = parseInt(params.get("fig") || "1", 10);
+    const theme = params.get("theme") || "light";
+
+    if (theme === "dark") {
+      document.body.classList.add("dark");
+    }
+
+    const titleEl = document.getElementById("fig-title");
+    const imgEl = document.getElementById("figure-img");
+    const statusEl = document.getElementById("fig-status");
+    const footerResEl = document.getElementById("footer-res");
+
+    titleEl.textContent = `Figure ${figNum}`;
+    imgEl.src = `/api/figure/${figNum}/image?theme=${theme}&t=${Date.now()}`;
+
+    // Actualiza la imagen cuando se carga
+    imgEl.onload = () => {
+      statusEl.textContent = "Listo";
+      footerResEl.textContent = `${imgEl.naturalWidth || 560} × ${imgEl.naturalHeight || 420} px`;
+    };
+    imgEl.onerror = () => {
+      statusEl.textContent = "Esperando datos gráficos...";
+    };
+
+    // Botones de acción
+    document.getElementById("btn-save").addEventListener("click", () => {
+      const a = document.createElement("a");
+      a.href = imgEl.src;
+      a.download = `figure_${figNum}.png`;
+      a.click();
+    });
+
+    document.getElementById("btn-refresh").addEventListener("click", () => {
+      statusEl.textContent = "Actualizando...";
+      imgEl.src = `/api/figure/${figNum}/image?theme=${theme}&t=${Date.now()}`;
+    });
+
+    document.getElementById("btn-grid").addEventListener("click", async () => {
+      try {
+        await fetch("/api/mvm/eval", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: `figure(${figNum}); grid;` })
+        });
+        imgEl.src = `/api/figure/${figNum}/image?theme=${theme}&t=${Date.now()}`;
+      } catch (e) {
+        console.error("Error al alternar rejilla:", e);
+      }
+    });
+
+    document.getElementById("btn-home").addEventListener("click", async () => {
+      imgEl.src = `/api/figure/${figNum}/image?theme=${theme}&t=${Date.now()}`;
+    });
+
+    // Handshake Bayeux con el backend para notificar ciclo de vida de la figura
+    async function notifyBayeux(channel, data = {}) {
+      try {
+        await fetch("/messageservice/async", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify([{
+            id: String(Date.now()),
+            channel: `/matlab${channel}`,
+            data: data
+          }])
+        });
+      } catch (err) {
+        // silencioso
+      }
+    }
+
+    async function initContainerLifecycle() {
+      // 1. Handshake y suscripción inicial
+      await notifyBayeux(`/${containerId}/uicontainer`, { type: "started" });
+      await notifyBayeux("/gbtweb/divfigure/clientSubscribed", {});
+      await notifyBayeux("/gbtweb/divfigure/figureRefresh", {});
+      await notifyBayeux("/mg2web/eventChannel", {
+        type: "command",
+        message: "register",
+        id: "main",
+        clientType: "Normal"
+      });
+    }
+
+    initContainerLifecycle();
+
+    window.addEventListener("beforeunload", () => {
+      navigator.sendBeacon("/messageservice/async", JSON.stringify([{
+        id: String(Date.now()),
+        channel: `/matlab/${containerId}/uicontainer`,
+        data: { type: "terminated" }
+      }]));
+    });
+
+    // Polling ligero para refresco automático cuando la MVM grafica algo nuevo
+    let lastModified = 0;
+    setInterval(async () => {
+      try {
+        const res = await fetch(`/api/figure/${figNum}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.version && data.version !== lastModified) {
+            lastModified = data.version;
+            if (data.name && data.name !== `Figure ${figNum}`) {
+              titleEl.textContent = `Figure ${figNum}: ${data.name}`;
+            } else {
+              titleEl.textContent = `Figure ${figNum}`;
+            }
+            imgEl.src = `/api/figure/${figNum}/image?theme=${theme}&v=${lastModified}&t=${Date.now()}`;
+          }
+        }
+      } catch (_) {}
+    }, 1200);
+  </script>
+</body>
+</html>

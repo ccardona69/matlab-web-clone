@@ -567,3 +567,126 @@ def test_wo10_filesystem_mfz_lf_channel_datamodel(client: TestClient) -> None:
     assert len(content["model"]["entries"]) > 0
 
 
+# ---------------------------------------------------------------------------
+# WO-11: Figuras Handle Graphics embebidas en el JSD
+# ---------------------------------------------------------------------------
+
+
+def test_wo11_plot_figure_created_and_wildcard_subscription(client: TestClient) -> None:
+    """WO-11: Al evaluar plot(1:10), se publica figureContainerDefault y gbtweb/divfigure/figureCreated con wildcard."""
+    handshake = client.post(
+        "/messageservice/async",
+        json={"channel": "/meta/handshake", "version": "1.0", "supportedConnectionTypes": ["long-polling"], "id": "1"},
+    ).json()[0]
+    cid = handshake["clientId"]
+
+    subscriptions = [
+        "/matlab/mvm/attach/response",
+        "/matlab/mvm/user-mvm/eval/response",
+        "/matlab/figureContainerDefault",
+        "/matlab/gbtweb/divfigure/*",  # Comprobación de suscripción wildcard
+    ]
+    for idx, channel in enumerate(subscriptions, start=2):
+        ack = client.post(
+            "/messageservice/async",
+            json={"channel": "/meta/subscribe", "clientId": cid, "subscription": channel, "id": str(idx)},
+        ).json()[0]
+        assert ack["successful"] is True
+
+    # Evaluar plot(1:10)
+    client.post(
+        "/messageservice/async",
+        json={
+            "channel": "/matlab/mvm/user-mvm/eval/request",
+            "clientId": cid,
+            "data": {"command": "plot(1:10)", "requestID": "PLOT_1"},
+            "id": "10",
+        },
+    )
+
+    events = client.post(
+        "/messageservice/async",
+        json={"channel": "/meta/connect", "clientId": cid, "id": "11"},
+    ).json()
+
+    by_channel = {}
+    for item in events:
+        by_channel.setdefault(item.get("channel"), []).append(item)
+
+    assert "/matlab/figureContainerDefault" in by_channel
+    default_fig = by_channel["/matlab/figureContainerDefault"][0]["data"]
+    assert default_fig["launchUndockedWindow"] == 1
+    assert default_fig["defaultFigurePosition"] == [423, 230, 1074, 647]
+
+    assert "/matlab/gbtweb/divfigure/figureCreated" in by_channel
+    fig_created = by_channel["/matlab/gbtweb/divfigure/figureCreated"][0]["data"]
+    assert fig_created["ClientToServer"] == "/embeddedfigure/ClientToServer"
+    assert fig_created["ServerToClient"] == "/embeddedfigure/ServerToClient"
+    assert fig_created["Title"] == "Figure 1"
+    assert fig_created["Visible"] is True
+    assert fig_created["WindowStyle"] == "docked"
+    assert fig_created["channel"].startswith("/uifigure/")
+    assert len(fig_created["Uuid"]) > 0
+
+
+def test_wo11_figure_lifecycle_channels_acknowledged(client: TestClient) -> None:
+    """WO-11: Todos los canales del ciclo de vida y eventos de figuras reciben acuse sin error."""
+    handshake = client.post(
+        "/messageservice/async",
+        json={"channel": "/meta/handshake", "version": "1.0", "supportedConnectionTypes": ["long-polling"], "id": "1"},
+    ).json()[0]
+    cid = handshake["clientId"]
+
+    channels_to_test = [
+        ("/matlab/motw/uicontainer", {"type": "started"}),
+        ("/matlab/gbtweb/divfigure/clientSubscribed", {}),
+        ("/matlab/gbtweb/divfigure/setUndockInWindowFigureContainer", {}),
+        ("/matlab/gbtweb/divfigure/figureRefresh", {}),
+        ("/matlab/mg2web/eventChannel", {"type": "command", "message": "register", "id": "main", "clientType": "Normal"}),
+        ("/matlab/mlapp/figure", {"eventType": "moRefreshed"}),
+        ("/matlab/channel/webwindow/focus", {"channelName": "/channel/webwindow"}),
+        ("/matlab/x270E6283/uicontainer", {"type": "started"}),
+        ("/matlab/x270E6283/uicontainer", {"type": "terminated"}),
+    ]
+
+    for idx, (channel, data) in enumerate(channels_to_test, start=2):
+        ack = client.post(
+            "/messageservice/async",
+            json={"channel": channel, "clientId": cid, "data": data, "id": str(idx)},
+        ).json()[0]
+        assert ack["successful"] is True
+
+
+def test_wo11_figure_image_and_meta_endpoints(client: TestClient) -> None:
+    """WO-11: Endpoints de renderizado PNG y metadatos de figura."""
+    client.post("/api/mvm/eval", json={"code": "figure(1); plot(1:5, [1 4 9 16 25], 'r-o'); title('Parabola');"})
+
+    # 1. /api/figures
+    figs = client.get("/api/figures").json()
+    assert len(figs) >= 1
+    f1 = next(f for f in figs if f["number"] == 1)
+    assert f1["number"] == 1
+    assert "image_data_url" in f1
+    assert f1["image_data_url"].startswith("data:image/png;base64,")
+
+    # 2. /api/figure/1
+    meta = client.get("/api/figure/1").json()
+    assert meta["number"] == 1
+    assert meta["width"] == 560
+    assert meta["height"] == 420
+    assert len(meta["axes"]) == 1
+
+    # 3. /api/figure/1/image (PNG real con bytes mágicos)
+    img_resp = client.get("/api/figure/1/image")
+    assert img_resp.status_code == 200
+    assert img_resp.headers["content-type"] == "image/png"
+    assert img_resp.content[:8] == b"\x89PNG\r\n\x1a\n"
+
+    # 4. /mw/undocked-container.html sirve la página del contenedor
+    html_resp = client.get("/mw/undocked-container.html?id=fig1&fig=1")
+    assert html_resp.status_code == 200
+    assert "Figure 1" in html_resp.text
+    assert "/api/figure/1/image" in html_resp.text
+
+
+
