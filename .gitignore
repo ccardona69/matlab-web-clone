@@ -31,3 +31,6 @@ venv/
 /vendor/matlab/
 # Mirror local del frontend (lo genera scripts/mirror_matlab_webgui.py; NUNCA al repo)
 /ml-mirror/
+
+# Scratch local de agentes (diagnosticos one-off, no van al repo)
+/scratch/
